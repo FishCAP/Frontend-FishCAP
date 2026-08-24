@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fishcap_app/l10n/app_localizations.dart';
 import '../../app/theme.dart';
+import '../../utils/page_transitions.dart';
 
 class NotificationsScreen extends StatelessWidget {
   const NotificationsScreen({super.key});
@@ -121,14 +122,14 @@ class NotificationsScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isUnread ? color.withOpacity(0.05) : AppTheme.cardColor,
+        color: isUnread ? color.withValues(alpha: 0.05) : AppTheme.cardColor,
         borderRadius: BorderRadius.circular(16),
         border: isUnread
-            ? Border.all(color: color.withOpacity(0.3), width: 1)
+            ? Border.all(color: color.withValues(alpha: 0.3), width: 1)
             : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -140,7 +141,7 @@ class NotificationsScreen extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(

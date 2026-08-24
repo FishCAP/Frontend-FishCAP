@@ -1,39 +1,57 @@
 class User {
   final String id;
-  final String username;
   final String fullName;
   final String email;
-  final String phoneNumber;
+  final String? phoneNumber;
+  final String? username;
   final String? profileImage;
 
   User({
     required this.id,
-    required this.username,
     required this.fullName,
     required this.email,
-    required this.phoneNumber,
+    this.phoneNumber,
+    this.username,
     this.profileImage,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['id'] ?? json['_id'] ?? '',
-      username: json['username'] ?? '',
-      fullName: json['fullName'] ?? json['full_name'] ?? '',
+      fullName: json['fullName'] ?? json['name'] ?? 'User',
       email: json['email'] ?? '',
-      phoneNumber: json['phoneNumber'] ?? json['phone_number'] ?? '',
-      profileImage: json['profileImage'] ?? json['profile_image'],
+      phoneNumber: json['phone'],
+      username: json['username'],
+      profileImage: json['profileImage'] ?? json['avatar'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'username': username,
       'fullName': fullName,
       'email': email,
-      'phoneNumber': phoneNumber,
+      'phone': phoneNumber,
+      'username': username,
       'profileImage': profileImage,
     };
+  }
+
+  User copyWith({
+    String? id,
+    String? fullName,
+    String? email,
+    String? phoneNumber,
+    String? username,
+    String? profileImage,
+  }) {
+    return User(
+      id: id ?? this.id,
+      fullName: fullName ?? this.fullName,
+      email: email ?? this.email,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      username: username ?? this.username,
+      profileImage: profileImage ?? this.profileImage,
+    );
   }
 }

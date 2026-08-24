@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fishcap_app/l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 import '../../app/theme.dart';
+import '../../providers/user_provider.dart';
+import '../../utils/page_transitions.dart';
+import '../auth/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -11,14 +15,14 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -28,22 +32,36 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    // Simulate API call
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final success = await userProvider.login(
+        _emailController.text.trim(),
+        _passwordController.text,
+      );
 
-    setState(() => _isLoading = false);
+      if (!mounted) return;
 
-      if (mounted) {
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(AppLocalizations.of(context)!.success),
+            content: const Text('Login successful'),
             backgroundColor: AppTheme.successColor,
           ),
         );
-        
-        // Navigate to schedule (welcome page)
         Navigator.pushReplacementNamed(context, '/schedule');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(userProvider.error ?? 'Login failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -60,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 60),
-                
+
                 // Logo
                 Center(
                   child: Container(
@@ -77,66 +95,70 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // App Name
                 Center(
                   child: Text(
                     l10n.appName,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 8),
-                
+
                 // Tagline
                 Center(
                   child: Text(
                     l10n.appTagline,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppTheme.textSecondary,
-                        ),
+                      color: AppTheme.textSecondary,
+                    ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 48),
-                
+
                 // Welcome Back
                 Text(
                   l10n.welcomeBack,
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                
+
                 const SizedBox(height: 8),
-                
+
                 Text(
                   l10n.loginSubtitle,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
-                
+
                 const SizedBox(height: 32),
-                
-                // Username Field
+
+                // Email Field
                 TextFormField(
-                  controller: _usernameController,
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    labelText: l10n.username,
-                    prefixIcon: const Icon(Icons.person_outline),
+                    labelText: l10n.emailAddress,
+                    prefixIcon: const Icon(Icons.email_outlined),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter username';
+                      return 'Please enter your email';
+                    }
+                    if (!value.contains('@')) {
+                      return 'Please enter a valid email';
                     }
                     return null;
                   },
                 ),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // Password Field
                 TextFormField(
                   controller: _passwordController,
@@ -162,9 +184,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     return null;
                   },
                 ),
-                
+
                 const SizedBox(height: 8),
-                
+
                 // Forgot Password
                 Align(
                   alignment: Alignment.centerRight,
@@ -173,9 +195,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Text(l10n.forgotPassword),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Login Button
                 SizedBox(
                   height: 56,
@@ -193,9 +215,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         : Text(l10n.login),
                   ),
                 ),
-                
+
                 const SizedBox(height: 24),
-                
+
                 // Sign Up Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -203,7 +225,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(l10n.noAccount),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, '/register');
+                        Navigator.push(
+                          context,
+                          PageTransitions.slideFromRight(RegisterScreen()),
+                        );
                       },
                       child: Text(l10n.signUp),
                     ),

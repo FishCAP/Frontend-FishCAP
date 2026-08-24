@@ -1,10 +1,148 @@
+import 'package:fishcap_app/screens/home/dashboard_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:fishcap_app/l10n/app_localizations.dart';
 import '../../app/theme.dart';
+import '../../utils/page_transitions.dart';
+import '../../models/pond.dart';
+import '../../services/api_service.dart';
+import '../notifications/notifications_screen.dart';
+import '../pond/create_pond_screen.dart';
 import '../history/history_screen.dart';
+import '../profile/profile_screen.dart';
 
-class ScheduleScreen extends StatelessWidget {
+class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({super.key});
+
+  @override
+  State<ScheduleScreen> createState() => _ScheduleScreenState();
+}
+
+class _ScheduleScreenState extends State<ScheduleScreen> {
+  final ApiService _apiService = ApiService.instance;
+  List<Pond> _ponds = [];
+  bool _isLoading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPonds();
+  }
+
+  Future<void> _loadPonds() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await _apiService.loadToken();
+      final result = await _apiService.getPonds();
+
+      if (result['success'] == true) {
+        final List<dynamic> pondsList = result['data'] ?? [];
+        setState(() {
+          _ponds = pondsList
+              .map((pondJson) => Pond.fromJson(pondJson))
+              .toList();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _errorMessage = result['message'] ?? 'Failed to load ponds';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _deletePond(Pond pond) async {
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Pond'),
+        content: Text(
+          'Are you sure you want to delete "${pond.name}"? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final result = await _apiService.deletePond(pond.id);
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${pond.name} deleted successfully'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+      await _loadPonds();
+    } else {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Failed to delete pond'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _editPond(Pond pond) async {
+    if (!mounted) return;
+
+    final result = await Navigator.push(
+      context,
+      PageTransitions.slideFromRight(CreatePondScreen(pond: pond)),
+    );
+
+    if (result == true && mounted) {
+      await _loadPonds();
+    }
+  }
+
+  Future<void> _navigateToCreatePond() async {
+    if (!mounted) return;
+
+    final result = await Navigator.push(
+      context,
+      PageTransitions.slideFromRight(const CreatePondScreen()),
+    );
+
+    if (result == true && mounted) {
+      await _loadPonds();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +178,8 @@ class ScheduleScreen extends StatelessWidget {
                     child: Center(
                       child: Text(
                         l10n.appName,
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: AppTheme.textPrimary,
                             ),
@@ -58,7 +197,12 @@ class ScheduleScreen extends StatelessWidget {
                     ),
                     child: IconButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, '/notifications');
+                        Navigator.push(
+                          context,
+                          PageTransitions.slideFromRight(
+                            const NotificationsScreen(),
+                          ),
+                        );
                       },
                       icon: const Icon(
                         Icons.notifications_outlined,
@@ -79,7 +223,10 @@ class ScheduleScreen extends StatelessWidget {
                   children: [
                     // Search Bar
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: AppTheme.cardColor,
                         borderRadius: BorderRadius.circular(16),
@@ -123,177 +270,155 @@ class ScheduleScreen extends StatelessWidget {
 
                     const SizedBox(height: 20),
 
-                    // Summary Cards Row
-                    Row(
-                      children: [
-                        // Active Ponds Card
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cardColor,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Active Ponds',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  '12',
-                                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textPrimary,
-                                      ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle,
-                                      size: 16,
-                                      color: AppTheme.successColor,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'All Running',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppTheme.successColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                    LayoutBuilder(
+                      builder: (context, summaryConstraints) {
+                        final compact = summaryConstraints.maxWidth < 360;
+                        final cards = [
+                          _buildSummaryCard(
+                            context,
+                            label: 'Active Ponds',
+                            value: '${_ponds.length}',
+                            detail: 'All running',
+                            icon: Icons.check_circle,
+                            color: AppTheme.successColor,
                           ),
-                        ),
-
-                        const SizedBox(width: 16),
-
-                        // Active Alerts Card
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cardColor,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Active Alerts',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: AppTheme.textSecondary,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Text(
-                                  '03',
-                                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.errorColor,
-                                      ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.warning_amber,
-                                      size: 16,
-                                      color: AppTheme.errorColor,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Attention Required',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: AppTheme.errorColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
+                          _buildSummaryCard(
+                            context,
+                            label: 'Active Alerts',
+                            value: '${_ponds.where((p) => p.hasAlert).length}',
+                            detail: 'Needs attention',
+                            icon: Icons.warning_amber,
+                            color: AppTheme.errorColor,
                           ),
-                        ),
-                      ],
+                        ];
+                        return compact
+                            ? Column(
+                                children: [
+                                  cards.first,
+                                  const SizedBox(height: 12),
+                                  cards.last,
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(child: cards.first),
+                                  const SizedBox(width: 12),
+                                  Expanded(child: cards.last),
+                                ],
+                              );
+                      },
                     ),
 
                     const SizedBox(height: 32),
 
                     // Your Sites Section
-                    Text(
-                      'Your Sites',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Your Sites',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
+                              ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Loading State
+                    if (_isLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(40.0),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    // Error State
+                    else if (_errorMessage != null)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(40.0),
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 48,
+                                color: AppTheme.errorColor,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton.icon(
+                                onPressed: _loadPonds,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('Retry'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ],
                           ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Lake A Site Card
-                    _buildSiteCard(
-                      context,
-                      name: 'Lake A',
-                      species: 'Atlantic Salmon • Gen-4',
-                      ph: '7.4 pH',
-                      temperature: '14.2°C',
-                      status: 'Optimal',
-                      statusColor: AppTheme.successColor,
-                      hasAlert: false,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Nursery 01 Site Card
-                    _buildSiteCard(
-                      context,
-                      name: 'Nursery 01',
-                      species: 'Pacific White Shrimp • Post-Larval',
-                      oxygen: '2.1 mg/L',
-                      temperature: '28.5°C',
-                      status: 'Low Oxygen',
-                      statusColor: AppTheme.errorColor,
-                      hasAlert: true,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Raceway 4 Site Card
-                    _buildSiteCard(
-                      context,
-                      name: 'Raceway 4',
-                      species: 'Rainbow Trout • Juvenile',
-                      ph: '--',
-                      temperature: '11.8°C',
-                      status: 'Draining',
-                      statusColor: AppTheme.warningColor,
-                      hasAlert: false,
-                    ),
+                        ),
+                      )
+                    // Empty State
+                    else if (_ponds.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(40.0),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.water_damage_outlined,
+                                size: 64,
+                                color: AppTheme.textSecondary.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No ponds yet',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Create your first pond to get started',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    // Ponds List
+                    else
+                      ...List.generate(_ponds.length, (index) {
+                        final pond = _ponds[index];
+                        return Column(
+                          children: [
+                            _buildSiteCard(context, pond),
+                            if (index < _ponds.length - 1)
+                              const SizedBox(height: 16),
+                          ],
+                        );
+                      }),
 
                     const SizedBox(height: 20),
 
@@ -350,9 +475,7 @@ class ScheduleScreen extends StatelessWidget {
                             width: double.infinity,
                             height: 48,
                             child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pushNamed(context, '/create_pond');
-                              },
+                              onPressed: _navigateToCreatePond,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF0D7377),
                                 foregroundColor: Colors.white,
@@ -373,7 +496,9 @@ class ScheduleScreen extends StatelessWidget {
                       ),
                     ),
 
-                    const SizedBox(height: 100), // Space for bottom navigation and FAB
+                    const SizedBox(
+                      height: 100,
+                    ), // Space for bottom navigation and FAB
                   ],
                 ),
               ),
@@ -390,10 +515,16 @@ class ScheduleScreen extends StatelessWidget {
               // Already on schedule
               break;
             case 1:
-              Navigator.pushReplacementNamed(context, '/history');
+              Navigator.pushReplacement(
+                context,
+                PageTransitions.fade(const HistoryScreen()),
+              );
               break;
             case 2:
-              Navigator.pushReplacementNamed(context, '/profile');
+              Navigator.pushReplacement(
+                context,
+                PageTransitions.fade(const ProfileScreen()),
+              );
               break;
           }
         },
@@ -415,48 +546,40 @@ class ScheduleScreen extends StatelessWidget {
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.history_outlined),
-            activeIcon: Icon(
-              Icons.history,
-              color: AppTheme.textSecondary,
-            ),
+            activeIcon: Icon(Icons.history, color: AppTheme.textSecondary),
             label: 'History',
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.person_outlined),
-            activeIcon: Icon(
-              Icons.person,
-              color: AppTheme.textSecondary,
-            ),
+            activeIcon: Icon(Icons.person, color: AppTheme.textSecondary),
             label: 'Profile',
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, '/create_pond');
-        },
+        onPressed: _navigateToCreatePond,
         backgroundColor: AppTheme.primaryColor,
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-          size: 32,
-        ),
+        child: const Icon(Icons.add, color: Colors.white, size: 32),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
-  Widget _buildSiteCard(
-    BuildContext context, {
-    required String name,
-    required String species,
-    required String status,
-    required Color statusColor,
-    bool hasAlert = false,
-    String? ph,
-    String? oxygen,
-    required String temperature,
-  }) {
+  Widget _buildSiteCard(BuildContext context, Pond pond) {
+    // Safely parse status color, fallback to primary if null or invalid
+    Color statusColor;
+    try {
+      if (pond.statusColor.isNotEmpty) {
+        statusColor = Color(
+          int.parse(pond.statusColor.replaceFirst('#', '0xFF')),
+        );
+      } else {
+        statusColor = AppTheme.primaryColor;
+      }
+    } catch (_) {
+      statusColor = AppTheme.primaryColor;
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -473,15 +596,20 @@ class ScheduleScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      pond.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -490,8 +618,10 @@ class ScheduleScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      species,
-                      style: TextStyle(
+                      pond.species,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         fontSize: 14,
                         color: AppTheme.textSecondary,
                       ),
@@ -499,110 +629,196 @@ class ScheduleScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    if (hasAlert)
-                      Icon(
-                        Icons.warning_amber,
-                        size: 14,
-                        color: statusColor,
-                      ),
-                    if (hasAlert) const SizedBox(width: 4),
-                    Text(
-                      status,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: statusColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildStatusChip(pond, statusColor),
             ],
           ),
           const SizedBox(height: 16),
+          // Display only fields that exist in the Pond model
           Row(
             children: [
-              if (ph != null) ...[
-                Icon(
-                  Icons.science,
-                  size: 16,
-                  color: AppTheme.primaryColor,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  ph,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 16),
-              ],
-              if (oxygen != null) ...[
-                Icon(
-                  Icons.water_damage,
-                  size: 16,
-                  color: AppTheme.errorColor,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  oxygen,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 16),
-              ],
-              Icon(
-                Icons.thermostat,
-                size: 16,
-                color: AppTheme.primaryColor,
-              ),
+              // Temperature is always present in the model
+              Icon(Icons.thermostat, size: 16, color: AppTheme.primaryColor),
               const SizedBox(width: 6),
               Text(
-                temperature,
+                pond.temperature,
                 style: const TextStyle(
                   fontSize: 14,
                   color: AppTheme.textPrimary,
                 ),
               ),
+              // Add other fields if they exist in the model (they are not in the given Pond definition)
+              // If you have ph and oxygen in your model, uncomment:
+              // if (pond.ph != null) ...[
+              //   const SizedBox(width: 16),
+              //   Icon(Icons.science, size: 16, color: AppTheme.primaryColor),
+              //   const SizedBox(width: 6),
+              //   Text(pond.ph!, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+              // ],
+              // if (pond.oxygen != null) ...[
+              //   const SizedBox(width: 16),
+              //   Icon(Icons.water_damage, size: 16, color: AppTheme.errorColor),
+              //   const SizedBox(width: 6),
+              //   Text(pond.oxygen!, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+              // ],
             ],
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PondHistoryDetailScreen(),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        PageTransitions.slideFromRight(
+                          DashboardScreen(
+                            pondId: pond.id,
+                            pondName: pond.name,
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'View Dashboard',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text(
-                'View Dashboard',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () => _editPond(pond),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor.withValues(
+                      alpha: 0.1,
+                    ),
+                    foregroundColor: AppTheme.primaryColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Icon(Icons.edit, size: 20),
                 ),
+              ),
+              const SizedBox(width: 12),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: () => _deletePond(pond),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.errorColor.withValues(alpha: 0.1),
+                    foregroundColor: AppTheme.errorColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Icon(Icons.delete, size: 20),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(
+    BuildContext context, {
+    required String label,
+    required String value,
+    required String detail,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: AppTheme.textSecondary),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, color: color),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(Pond pond, Color statusColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: statusColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (pond.hasAlert)
+            Icon(Icons.warning_amber, size: 14, color: statusColor),
+          if (pond.hasAlert) const SizedBox(width: 4),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 130),
+            child: Text(
+              pond.status,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: statusColor,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

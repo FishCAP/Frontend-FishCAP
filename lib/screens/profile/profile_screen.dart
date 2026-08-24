@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:fishcap_app/l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 import '../../app/theme.dart';
+import '../../providers/user_provider.dart';
+import '../../utils/page_transitions.dart';
+import '../notifications/notifications_screen.dart';
+import '../schedule/schedule_screen.dart';
+import '../history/history_screen.dart';
+import '../settings/settings_screen.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -8,6 +16,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final userProvider = Provider.of<UserProvider>(context);
 
     return Scaffold(
       body: SafeArea(
@@ -28,7 +37,10 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   IconButton(
                     onPressed: () {
-                      Navigator.pushNamed(context, '/notifications');
+                      Navigator.push(
+                        context,
+                        PageTransitions.slideFromRight(const NotificationsScreen()),
+                      );
                     },
                     icon: const Icon(
                       Icons.notifications_outlined,
@@ -42,224 +54,269 @@ class ProfileScreen extends StatelessWidget {
 
             // Main Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    // Profile Image with Edit Button
-                    Stack(
-                      alignment: Alignment.bottomRight,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // Adaptive horizontal padding: wider on tablets/desktop (>600px)
+                  final isWide = constraints.maxWidth > 600;
+                  final horizontalPadding = isWide ? 48.0 : 20.0;
+                  // Stats cards: 2 columns on phones, 3+ on tablets
+                  final statsCrossAxisCount = isWide ? 3 : 2;
+
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    child: Column(
                       children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AppTheme.primaryColor,
-                              width: 3,
-                            ),
-                          ),
-                          child: ClipOval(
-                            child: Image.network(
-                              'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&h=240&fit=crop',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Container(
+                        // Profile Image with Edit Button
+                        Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
                                   color: AppTheme.primaryColor,
-                                  child: const Icon(
-                                    Icons.person,
-                                    size: 60,
-                                    color: Colors.white,
+                                  width: 3,
+                                ),
+                              ),
+                              child: ClipOval(
+                                child: userProvider.user?.profileImage != null
+                                    ? Image.network(
+                                        userProvider.user!.profileImage!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) {
+                                          return Container(
+                                            color: AppTheme.primaryColor,
+                                            child: const Icon(
+                                              Icons.person,
+                                              size: 60,
+                                              color: Colors.white,
+                                            ),
+                                          );
+                                        },
+                                      )
+                                    : Container(
+                                        color: AppTheme.primaryColor,
+                                        child: Icon(
+                                          Icons.person,
+                                          size: 60,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 0,
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                                  );
+                                },
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: const BoxDecoration(
+                                    color: AppTheme.primaryColor,
+                                    shape: BoxShape.circle,
                                   ),
-                                );
-                              },
+                                  child: const Icon(
+                                    Icons.edit,
+                                    color: Colors.white,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Name - Dynamic from user data
+                        Text(
+                          userProvider.user?.fullName ?? 'Loading...',
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+
+                        const SizedBox(height: 8),
+
+                        // Email
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.email_outlined,
+                              size: 16,
+                              color: AppTheme.textSecondary,
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                userProvider.user?.email ?? '',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textSecondary,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 6),
+
+                        // Phone Number
+                        if (userProvider.user?.phoneNumber != null) ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.phone_outlined,
+                                size: 16,
+                                color: AppTheme.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  userProvider.user!.phoneNumber!,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: AppTheme.textSecondary,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                        ],
+
+                        const SizedBox(height: 24),
+
+                        // Stats Cards - responsive grid
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: statsCrossAxisCount,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 1.4,
+                          ),
+                          itemCount: 2,
+                          itemBuilder: (context, index) {
+                            if (index == 0) {
+                              return _buildStatCard(
+                                context,
+                                icon: Icons.water_damage_outlined,
+                                label: 'Tanks',
+                                value: '12',
+                                color: AppTheme.primaryColor,
+                              );
+                            }
+                            return _buildStatCard(
+                              context,
+                              icon: Icons.inventory_2_outlined,
+                              label: 'Stock',
+                              value: '450kg',
+                              color: AppTheme.secondaryColor,
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        // Preferences Section
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'PREFERENCES',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textSecondary,
+                              letterSpacing: 1.0,
                             ),
                           ),
                         ),
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: const BoxDecoration(
-                              color: AppTheme.primaryColor,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.edit,
-                              color: Colors.white,
+
+                        const SizedBox(height: 12),
+
+                        // Settings Option
+                        _buildPreferenceItem(
+                          context,
+                          icon: Icons.settings_outlined,
+                          title: 'Settings',
+                          subtitle: 'App & notification preferences',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              PageTransitions.slideFromRight(const SettingsScreen()),
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        // Help Option
+                        _buildPreferenceItem(
+                          context,
+                          icon: Icons.help_outline,
+                          title: 'Help',
+                          subtitle: 'FAQs & Support center',
+                          onTap: () {
+                            // Navigate to help
+                          },
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Logout Button
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              _showLogoutDialog(context);
+                            },
+                            icon: const Icon(
+                              Icons.logout,
+                              color: AppTheme.errorColor,
                               size: 20,
                             ),
+                            label: Text(
+                              l10n.logout,
+                              style: const TextStyle(
+                                color: AppTheme.errorColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              side: const BorderSide(
+                                color: AppTheme.errorColor,
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
                           ),
                         ),
+
+                        const SizedBox(height: 20),
                       ],
                     ),
-
-                    const SizedBox(height: 16),
-
-                    // Name
-                    const Text(
-                      'Sok Chamroeun',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimary,
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    // Phone Number
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.phone_outlined,
-                          size: 16,
-                          color: AppTheme.textSecondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '+855 12 345 678',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    // Location
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 16,
-                          color: AppTheme.textSecondary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Phnom Penh',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Stats Cards
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            context,
-                            icon: Icons.water_damage_outlined,
-                            label: 'Tanks',
-                            value: '12',
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildStatCard(
-                            context,
-                            icon: Icons.inventory_2_outlined,
-                            label: 'Stock',
-                            value: '450kg',
-                            color: AppTheme.secondaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Preferences Section
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'PREFERENCES',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.textSecondary,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Settings Option
-                    _buildPreferenceItem(
-                      context,
-                      icon: Icons.settings_outlined,
-                      title: 'Settings',
-                      subtitle: 'App & notification preferences',
-                      onTap: () {
-                        Navigator.pushNamed(context, '/settings');
-                      },
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    // Help Option
-                    _buildPreferenceItem(
-                      context,
-                      icon: Icons.help_outline,
-                      title: 'Help',
-                      subtitle: 'FAQs & Support center',
-                      onTap: () {
-                        // Navigate to help
-                      },
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Logout Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          _showLogoutDialog(context);
-                        },
-                        icon: const Icon(
-                          Icons.logout,
-                          color: AppTheme.errorColor,
-                          size: 20,
-                        ),
-                        label: Text(
-                          l10n.logout,
-                          style: const TextStyle(
-                            color: AppTheme.errorColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: const BorderSide(
-                            color: AppTheme.errorColor,
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -271,10 +328,16 @@ class ProfileScreen extends StatelessWidget {
         onTap: (index) {
           switch (index) {
             case 0:
-              Navigator.pushReplacementNamed(context, '/schedule');
+              Navigator.pushReplacement(
+                context,
+                PageTransitions.fade(const ScheduleScreen()),
+              );
               break;
             case 1:
-              Navigator.pushReplacementNamed(context, '/history');
+              Navigator.pushReplacement(
+                context,
+                PageTransitions.fade(const HistoryScreen()),
+              );
               break;
             case 2:
               // Already on profile
@@ -340,6 +403,7 @@ class ProfileScreen extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             icon,
@@ -444,6 +508,8 @@ class ProfileScreen extends StatelessWidget {
 
   void _showLogoutDialog(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -454,9 +520,12 @@ class ProfileScreen extends StatelessWidget {
             child: Text(l10n.cancel),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(context);
-              Navigator.pushReplacementNamed(context, '/login');
+              await userProvider.logout();
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, '/login');
+              }
             },
             child: Text(
               l10n.yes,

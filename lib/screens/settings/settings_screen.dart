@@ -3,9 +3,13 @@ import 'package:fishcap_app/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../providers/language_provider.dart';
+import '../../utils/page_transitions.dart';
+import '../notifications/notifications_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
+
+  static const String appVersion = '1.0.0';
 
   @override
   Widget build(BuildContext context) {
@@ -13,176 +17,67 @@ class SettingsScreen extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: ListView(
           padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Text(
-                l10n.settingsTitle,
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
-              ),
+          children: [
+            Text(
+              l10n.settingsTitle,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+            ),
+            const SizedBox(height: 24),
 
-              const SizedBox(height: 24),
+            SettingsItem(
+              title: l10n.language,
+              icon: Icons.language,
+              color: AppTheme.primaryColor,
+              value: 'English',
+              onTap: () => _showLanguageDialog(context),
+            ),
 
-              // Language Setting
-              _buildSettingsItem(
-                context,
-                l10n.language,
-                Icons.language,
-                AppTheme.primaryColor,
-                'English',
-                () {
-                  _showLanguageDialog(context);
-                },
-              ),
+            SettingsItem(
+              title: l10n.darkMode,
+              icon: Icons.dark_mode,
+              color: AppTheme.secondaryColor,
+              value: 'Off',
+              onTap: () => _showSnackBar(context, 'Dark mode coming soon!'),
+            ),
 
-              const SizedBox(height: 12),
+            SettingsItem(
+              title: l10n.notificationsSettings,
+              icon: Icons.notifications,
+              color: AppTheme.accentColor,
+              value: 'On',
+              onTap: () => _showSnackBar(context, 'Notification settings coming soon!'),
+            ),
 
-              // Dark Mode
-              _buildSettingsItem(
-                context,
-                l10n.darkMode,
-                Icons.dark_mode,
-                AppTheme.secondaryColor,
-                'Off',
-                () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Dark mode coming soon!'),
-                      backgroundColor: Colors.blue,
-                    ),
-                  );
-                },
-              ),
+            SettingsItem(
+              title: l10n.privacy,
+              icon: Icons.privacy_tip,
+              color: AppTheme.successColor,
+              onTap: () => _showSnackBar(context, 'Privacy settings coming soon!'),
+            ),
 
-              const SizedBox(height: 12),
-
-              // Notifications
-              _buildSettingsItem(
-                context,
-                l10n.notificationsSettings,
-                Icons.notifications,
-                AppTheme.accentColor,
-                'On',
-                () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Notification settings coming soon!'),
-                      backgroundColor: Colors.blue,
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 12),
-
-              // Privacy
-              _buildSettingsItem(
-                context,
-                l10n.privacy,
-                Icons.privacy_tip,
-                AppTheme.successColor,
-                '',
-                () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Privacy settings coming soon!'),
-                      backgroundColor: Colors.blue,
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 12),
-
-              // About
-              _buildSettingsItem(
-                context,
-                l10n.about,
-                Icons.info,
-                AppTheme.textSecondary,
-                'v1.0.0',
-                () {
-                  _showAboutDialog(context);
-                },
-              ),
-            ],
-          ),
+            SettingsItem(
+              title: l10n.about,
+              icon: Icons.info,
+              color: AppTheme.textSecondary,
+              value: 'v$appVersion',
+              onTap: () => _showAboutDialog(context),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildSettingsItem(
-    BuildContext context,
-    String title,
-    IconData icon,
-    Color color,
-    String value,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.cardColor,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: color,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-            ),
-            if (value.isNotEmpty)
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondary,
-                ),
-              ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: AppTheme.textSecondary,
-            ),
-          ],
-        ),
+  void _showSnackBar(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.blue,
       ),
     );
   }
@@ -191,7 +86,7 @@ class SettingsScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
     final currentLang = languageProvider.currentLocale.languageCode;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -199,39 +94,25 @@ class SettingsScreen extends StatelessWidget {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
+            RadioListTile<String>(
               title: const Text('English'),
-              trailing: Radio<String>(
-                value: 'en',
-                groupValue: currentLang,
-                onChanged: (value) {
-                  languageProvider.changeLanguage('en');
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(l10n.success),
-                      backgroundColor: AppTheme.successColor,
-                    ),
-                  );
-                },
-              ),
+              value: 'en',
+              groupValue: currentLang,
+              onChanged: (value) {
+                languageProvider.changeLanguage(value!);
+                Navigator.pop(context);
+                _showSnackBar(context, l10n.success);
+              },
             ),
-            ListTile(
+            RadioListTile<String>(
               title: const Text('ភាសាខ្មែរ'),
-              trailing: Radio<String>(
-                value: 'km',
-                groupValue: currentLang,
-                onChanged: (value) {
-                  languageProvider.changeLanguage('km');
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(l10n.success),
-                      backgroundColor: AppTheme.successColor,
-                    ),
-                  );
-                },
-              ),
+              value: 'km',
+              groupValue: currentLang,
+              onChanged: (value) {
+                languageProvider.changeLanguage(value!);
+                Navigator.pop(context);
+                _showSnackBar(context, l10n.success);
+              },
             ),
           ],
         ),
@@ -244,7 +125,7 @@ class SettingsScreen extends StatelessWidget {
     showAboutDialog(
       context: context,
       applicationName: 'AquaControl',
-      applicationVersion: '1.0.0',
+      applicationVersion: appVersion,
       applicationIcon: Container(
         width: 48,
         height: 48,
@@ -252,16 +133,86 @@ class SettingsScreen extends StatelessWidget {
           color: AppTheme.primaryColor,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(
-          Icons.water_drop,
-          color: Colors.white,
-        ),
+        child: const Icon(Icons.water_drop, color: Colors.white),
       ),
       children: [
         const Text('Precision Aquaculture Management'),
         const SizedBox(height: 8),
-        Text('${l10n.version}: 1.0.0'),
+        Text('${l10n.version}: $appVersion'),
       ],
+    );
+  }
+}
+
+class SettingsItem extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final String? value;
+  final VoidCallback onTap;
+
+  const SettingsItem({
+    super.key,
+    required this.title,
+    required this.icon,
+    required this.color,
+    this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.cardColor,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+            ),
+            if (value != null && value!.isNotEmpty)
+              Text(
+                value!,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: AppTheme.textSecondary),
+          ],
+        ),
+      ),
     );
   }
 }
