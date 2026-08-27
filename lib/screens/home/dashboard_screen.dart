@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:fishcap_app/l10n/app_localizations.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import '../../app/theme.dart';
+import '../../models/pond.dart';
 import '../../services/api_service.dart';
 import '../../utils/page_transitions.dart';
 import '../schedule/schedule_screen.dart';
@@ -11,11 +15,7 @@ class DashboardScreen extends StatefulWidget {
   final String pondId;
   final String pondName; // optional, shown while loading
 
-  const DashboardScreen({
-    super.key,
-    required this.pondId,
-    this.pondName = '',
-  });
+  const DashboardScreen({super.key, required this.pondId, this.pondName = ''});
 
   @override
   _DashboardScreenState createState() => _DashboardScreenState();
@@ -23,12 +23,58 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   final ApiService _api = ApiService.instance;
-  late Future<Map<String, dynamic>> _detailFuture;
+  Map<String, dynamic>? _pond;
+  bool _isLoading = true;
+  String? _error;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
-    _detailFuture = _api.getPondById(widget.pondId);
+    _loadDetail();
+    // The ESP32 pushes fresh sensor telemetry every ~60s; poll the pond
+    // detail (which embeds the latest sensor readings) every 30s so the
+    // dashboard updates automatically while the page stays open.
+    _pollTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _loadDetail(silent: true),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Fetches the pond detail (including the latest sensor readings).
+  /// When [silent] is true the currently displayed data stays on screen
+  /// while refreshing — used by the auto-poll so values change in place
+  /// instead of flashing a spinner.
+  Future<void> _loadDetail({bool silent = false}) async {
+    if (!silent) setState(() => _isLoading = true);
+    try {
+      final result = await _api.getPondById(widget.pondId);
+      if (!mounted) return;
+      if (result['success'] == true && result['data'] is Map<String, dynamic>) {
+        setState(() {
+          _pond = result['data'] as Map<String, dynamic>;
+          _error = null;
+        });
+      } else if (!silent || _pond == null) {
+        setState(() {
+          _error = result['message']?.toString() ?? 'Failed to load details';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      // Keep stale data visible on silent background refresh failures.
+      if (!silent || _pond == null) {
+        setState(() => _error = 'Error: $e');
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -48,8 +94,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   Expanded(
                     child: Text(
-                      widget.pondName.isNotEmpty ? widget.pondName : 'Dashboard',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      widget.pondName.isNotEmpty
+                          ? widget.pondName
+                          : 'Dashboard',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: AppTheme.textPrimary,
                           ),
@@ -59,30 +108,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
 
-            // Main content area (FutureBuilder)
+            // Main content area (auto-refreshing, pull-to-refresh enabled)
             Expanded(
-              child: FutureBuilder<Map<String, dynamic>>(
-                future: _detailFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  } else if (!snapshot.hasData ||
-                      snapshot.data!['success'] != true) {
-                    return Center(
-                      child: Text(
-                        snapshot.data?['message'] ?? 'Failed to load details',
-                      ),
-                    );
-                  } else {
-                    final data = snapshot.data!['data'];
-                    if (data is! Map<String, dynamic>) {
-                      return const Center(child: Text('Invalid data format'));
-                    }
-                    return _buildDashboardContent(data);
-                  }
-                },
+              child: RefreshIndicator(
+                onRefresh: () => _loadDetail(),
+                child: _buildBody(),
               ),
             ),
           ],
@@ -148,6 +178,106 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  /// Resolves the main scrollable body from the cached pond data.
+  Widget _buildBody() {
+    if (_isLoading && _pond == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null && _pond == null) {
+      return Center(child: Text(_error!));
+    }
+    if (_pond != null) {
+      return _buildDashboardContent(_pond!);
+    }
+    return const Center(child: Text('Failed to load details'));
+  }
+
+  /// Builds the prominent Active / Done toggle displayed at the top of the
+  /// pond dashboard. An active pond can be marked as done (it then moves to
+  /// History); a done pond can be reactivated (it then returns to Schedule).
+  Widget _buildStatusToggle(bool isDone) {
+    final Color accent = isDone ? AppTheme.warningColor : AppTheme.successColor;
+    return Material(
+      color: accent.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () => _togglePondStatus(isDone),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                isDone ? 'Status: Completed' : 'Status: Active',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: accent,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  isDone ? 'Reactivate' : 'Mark as Done',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: accent,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Toggles the pond's status between active and done, persists the change
+  /// to the backend, and pops back to the Schedule screen so the active/done
+  /// lists are refreshed.
+  Future<void> _togglePondStatus(bool currentlyDone) async {
+    final targetStatus = currentlyDone ? Pond.activeStatus : Pond.doneStatus;
+    final result = await _api.updatePond(widget.pondId, {
+      'status': targetStatus,
+    });
+    if (!mounted) return;
+    if (result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            currentlyDone
+                ? '${widget.pondName} reactivated — back on Schedule'
+                : '${widget.pondName} marked as Done — moved to History',
+          ),
+          backgroundColor: currentlyDone
+              ? AppTheme.successColor
+              : AppTheme.warningColor,
+        ),
+      );
+      // Let the user read the confirmation, then return to the Schedule
+      // screen so the active/done lists reflect the new status.
+      await Future.delayed(const Duration(milliseconds: 1300));
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Failed to update status'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
   // Build the main content with dynamic data
   Widget _buildDashboardContent(Map<String, dynamic> pond) {
     // Extract fields with fallbacks
@@ -155,20 +285,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final fishType = pond['fishType']?.toString() ?? 'Unknown';
     final stockingDuration = pond['stockingDuration']?.toString() ?? 'N/A';
     final expectedHarvest = pond['expectedHarvest']?.toString() ?? 'N/A';
-    final pondId = pond['id']?.toString() ?? widget.pondId; // fallback to widget.pondId
+    final pondId =
+        pond['id']?.toString() ?? widget.pondId; // fallback to widget.pondId
+
+    // Status toggle: 'active' ponds live on the Schedule screen, 'done'
+    // ponds live in the History screen. Tapping the toggle in the dashboard
+    // flips a pond between the two.
+    final status = (pond['status'] ?? Pond.activeStatus)
+        .toString()
+        .toLowerCase();
+    final bool isDone =
+        status == Pond.doneStatus ||
+        status == 'completed' ||
+        status == 'finished';
 
     // Alert
     final alertTitle = pond['alertTitle']?.toString() ?? '';
     final alertMessage = pond['alertMessage']?.toString() ?? '';
     final hasAlert = alertTitle.isNotEmpty;
 
-    // Water quality
-    final oxygen = pond['oxygen']?.toString() ?? '0';
+    // Water quality. Backend sends null when no sensor data exists yet —
+    // show "--" instead of a misleading 0.
+    final oxygen = pond['oxygen']?.toString() ?? '--';
     final oxygenUnit = pond['oxygenUnit']?.toString() ?? 'mg/L';
     final oxygenStatus = pond['oxygenStatus']?.toString() ?? 'Unknown';
-    final temperature = pond['temperature']?.toString() ?? '0';
-    final temperatureStatus = pond['temperatureStatus']?.toString() ?? 'Unknown';
-    final pH = pond['pH']?.toString() ?? '0';
+    final temperature = pond['temperature']?.toString() ?? '--';
+    final temperatureStatus =
+        pond['temperatureStatus']?.toString() ?? 'Unknown';
+    final pH = pond['pH']?.toString() ?? '--';
     final pHStatus = pond['pHStatus']?.toString() ?? 'Unknown';
 
     // Feed schedules
@@ -178,93 +322,97 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final monitoringImage = pond['monitoringImage']?.toString() ?? '';
 
     Future<void> _showAddFeedScheduleDialog(
-      BuildContext context, String pondId) async {
-    final timeController = TextEditingController();
-    final titleController = TextEditingController();
+      BuildContext context,
+      String pondId,
+    ) async {
+      final timeController = TextEditingController();
+      final titleController = TextEditingController();
 
-    final shouldAdd = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Add Feed Schedule'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: timeController,
-              decoration: const InputDecoration(
-                labelText: 'Time',
-                hintText: 'e.g., 8:00 AM',
+      final shouldAdd = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Add Feed Schedule'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: timeController,
+                decoration: const InputDecoration(
+                  labelText: 'Time',
+                  hintText: 'e.g., 8:00 AM',
+                ),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: titleController,
+                decoration: const InputDecoration(
+                  labelText: 'Feed Type',
+                  hintText: 'e.g., Morning Feed',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(
-                labelText: 'Feed Type',
-                hintText: 'e.g., Morning Feed',
-              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Add'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
+      );
+
+      if (shouldAdd != true) return;
+
+      final time = timeController.text.trim();
+      final title = titleController.text.trim();
+
+      if (time.isEmpty || title.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
+        return;
+      }
+
+      final result = await _api.addFeedSchedule(
+        pondId: pondId,
+        time: time,
+        title: title,
+      );
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Feed schedule added'),
+            backgroundColor: AppTheme.successColor,
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Add'),
+        );
+        // Refresh the detail data
+        await _loadDetail();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Failed to add schedule'),
+            backgroundColor: AppTheme.errorColor,
           ),
-        ],
-      ),
-    );
-
-    if (shouldAdd != true) return;
-
-    final time = timeController.text.trim();
-    final title = titleController.text.trim();
-
-    if (time.isEmpty || title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill all fields')),
-      );
-      return;
+        );
+      }
     }
-
-    final result = await _api.addFeedSchedule(
-      pondId: pondId,
-      time: time,
-      title: title,
-    );
-
-    if (!mounted) return;
-
-    if (result['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Feed schedule added'),
-          backgroundColor: AppTheme.successColor,
-        ),
-      );
-      // Refresh the detail data
-      setState(() {
-        _detailFuture = _api.getPondById(widget.pondId);
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result['message'] ?? 'Failed to add schedule'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
-    }
-  }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Active / Done toggle
+          _buildStatusToggle(isDone),
+          const SizedBox(height: 16),
+
           // Info Cards Row 1
           Row(
             children: [
@@ -374,9 +522,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Text(
             'Water Quality Status',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -389,9 +537,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Oxygen (O2)',
                   oxygen,
                   oxygenUnit,
-                  oxygenStatus == 'Optimal'
-                      ? AppTheme.successColor
-                      : AppTheme.errorColor,
+                  _statusColor(oxygenStatus),
                   oxygenStatus,
                   Icons.air,
                 ),
@@ -403,9 +549,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'Temp',
                   temperature,
                   '',
-                  temperatureStatus == 'Optimal'
-                      ? AppTheme.successColor
-                      : AppTheme.errorColor,
+                  _statusColor(temperatureStatus),
                   temperatureStatus,
                   Icons.thermostat,
                 ),
@@ -417,15 +561,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'pH Level',
                   pH,
                   '',
-                  pHStatus == 'Optimal'
-                      ? AppTheme.successColor
-                      : AppTheme.errorColor,
+                  _statusColor(pHStatus),
                   pHStatus,
                   Icons.science,
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 24),
+
+          // Feed stock (HX711 load cell) — live sensor weight
+          _buildFeedStockSection(pond),
           const SizedBox(height: 24),
 
           // Active Monitoring Image Card (if image URL provided)
@@ -491,23 +637,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Text(
                 'Feed Schedule',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               Text(
                 'Today',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppTheme.textSecondary,
-                ),
+                style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
               ),
             ],
           ),
           const SizedBox(height: 16),
 
           // Feed Schedule Items (dynamic)
-                    // Feed Schedule Items (dynamic)
+          // Feed Schedule Items (dynamic)
           if (feedSchedules.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
@@ -554,7 +697,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                side: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                side: const BorderSide(
+                  color: AppTheme.primaryColor,
+                  width: 1.5,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -568,6 +714,291 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // Helper widgets (unchanged from original except for minor adjustments)
+
+  /// Formats a weight given in grams; switches to kg above 1 kg. The backend
+  /// serializes DECIMAL columns as strings, so accept num or String input.
+  String _formatWeight(dynamic grams) {
+    if (grams == null) return '--';
+    final double? value =
+        grams is num ? grams.toDouble() : double.tryParse(grams.toString());
+    if (value == null) return '--';
+    if (value >= 1000) return '${(value / 1000).toStringAsFixed(2)} kg';
+    return '${value.toStringAsFixed(1)} g';
+  }
+
+  /// "Feed Stock (Sensor)" section — live HX711 load-cell weight of the
+  /// remaining feed. Values refresh automatically via the 30s poll, and the
+  /// card highlights when the ESP32 reports a low-stock condition.
+  Widget _buildFeedStockSection(Map<String, dynamic> pond) {
+    final dynamic rawWeight =
+        pond['remainingStockGrams'] ?? pond['weightGrams'];
+    final bool lowStock = pond['lowStock'] == true;
+    final String deviceId = pond['sensorDeviceId']?.toString() ?? '';
+
+    DateTime? updatedAt;
+    final rawUpdated = pond['lastReadingAt']?.toString();
+    if (rawUpdated != null && rawUpdated.isNotEmpty) {
+      updatedAt = DateTime.tryParse(rawUpdated)?.toLocal();
+    }
+
+    final String ageText;
+    if (updatedAt == null) {
+      ageText = 'Waiting for sensor data…';
+    } else {
+      final diff = DateTime.now().difference(updatedAt);
+      final String ago;
+      if (diff.inSeconds < 90) {
+        ago = 'just now';
+      } else if (diff.inMinutes < 60) {
+        ago = '${diff.inMinutes} min ago';
+      } else {
+        ago = '${diff.inHours} h ago';
+      }
+      ageText = 'Updated $ago · ${DateFormat('HH:mm').format(updatedAt)}';
+    }
+    final bool isLive = updatedAt != null &&
+        DateTime.now().difference(updatedAt).inMinutes < 3;
+
+    final String statusLabel;
+    final Color statusColor;
+    if (!hasStockData(rawWeight)) {
+      statusLabel = 'No data yet';
+      statusColor = AppTheme.textSecondary;
+    } else if (lowStock) {
+      statusLabel = 'Low stock';
+      statusColor = AppTheme.errorColor;
+    } else {
+      statusLabel = 'Stock OK';
+      statusColor = AppTheme.successColor;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Feed Stock (Sensor)',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+            ),
+            if (isLive)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.successColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.successColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'LIVE',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.successColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: statusColor.withValues(alpha: 0.35),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      Icons.scale,
+                      size: 28,
+                      color: statusColor,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Remaining feed',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatWeight(rawWeight),
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          statusLabel,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: statusColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              if (lowStock) ...[
+                const SizedBox(height: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.errorColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 20,
+                        color: AppTheme.errorColor,
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Low feed stock — refill the hopper soon.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.errorColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      ageText,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ),
+                  if (deviceId.isNotEmpty)
+                    Text(
+                      'Device: $deviceId',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// True when the payload carries a usable weight value (num or numeric
+  /// string — DECIMAL columns arrive as strings).
+  bool hasStockData(dynamic value) {
+    if (value == null) return false;
+    if (value is num) return true;
+    return double.tryParse(value.toString()) != null;
+  }
+
+  /// Maps a backend water-quality status label to the dot/border color.
+  /// The backend sends Good/Moderate/Low/Abnormal/Unknown (never "Optimal",
+  /// which is why every card previously rendered with the error color).
+  Color _statusColor(String? status) {
+    switch (status) {
+      case 'Good':
+      case 'Optimal':
+        return AppTheme.successColor;
+      case 'Moderate':
+        return const Color(0xFFF9A825); // amber warning
+      case 'Low':
+      case 'High':
+      case 'Abnormal':
+        return AppTheme.errorColor;
+      default: // 'Unknown' or anything unrecognized
+        return AppTheme.textSecondary;
+    }
+  }
+
   Widget _buildInfoCard(
     BuildContext context,
     String label,
@@ -590,18 +1021,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 24,
-            color: AppTheme.textSecondary,
-          ),
+          Icon(icon, size: 24, color: AppTheme.textSecondary),
           const SizedBox(height: 16),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-            ),
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 8),
           Text(
@@ -642,18 +1066,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            size: 20,
-            color: AppTheme.textSecondary,
-          ),
+          Icon(icon, size: 20, color: AppTheme.textSecondary),
           const SizedBox(height: 12),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              color: AppTheme.textSecondary,
-            ),
+            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 8),
           Row(
@@ -671,10 +1088,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(width: 4),
                 Text(
                   unit,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
                 ),
               ],
             ],
@@ -736,11 +1150,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: AppTheme.primaryColor,
-              size: 24,
-            ),
+            child: Icon(icon, color: AppTheme.primaryColor, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -809,7 +1219,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+              color: isSelected
+                  ? AppTheme.primaryColor
+                  : AppTheme.textSecondary,
               size: 24,
             ),
             const SizedBox(height: 4),
@@ -817,7 +1229,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label,
               style: TextStyle(
                 fontSize: 12,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondary,
+                color: isSelected
+                    ? AppTheme.primaryColor
+                    : AppTheme.textSecondary,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),

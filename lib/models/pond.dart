@@ -35,13 +35,31 @@ class Pond {
     this.hardwareId,
   });
 
+  /// Whether this pond has been marked as done/completed.
+  ///
+  /// Done ponds are shown in the History screen; active ponds are shown in
+  /// the Schedule screen. The status string is normalised (lower-cased) so
+  /// that any common "done" spelling (`done` / `completed` / `finished`) is
+  /// treated the same way regardless of casing.
+  bool get isDone {
+    final normalized = status.toLowerCase();
+    return normalized == 'done' ||
+        normalized == 'completed' ||
+        normalized == 'finished';
+  }
+
+  /// Convenience toggle target used when flipping a pond between the
+  /// Schedule (active) and History (done) screens.
+  static const String doneStatus = 'done';
+  static const String activeStatus = 'active';
+
   factory Pond.fromJson(Map<String, dynamic> json) {
     return Pond(
       id: json['id'] ?? json['_id'] ?? '',
       name: json['name'] ?? json['pondName'] ?? 'Unknown Pond',
       species: json['species'] ?? json['fishType'] ?? 'Unknown Species',
       location: json['location'],
-      estimatedCount: (json['estimatedCount'] ?? json['fishCount'])?.toInt(),
+      estimatedCount: _parseInt(json['estimatedCount'] ?? json['fishCount']),
       startDate: json['startDate'],
       endDate: json['endDate'],
       ph: json['ph']?.toString(),
@@ -50,12 +68,31 @@ class Pond {
       status: json['status'] ?? 'Active',
       statusColor: json['statusColor'] ?? '#4CAF50',
       hasAlert: json['hasAlert'] ?? false,
-      feedingTimes: json['feedingTimes'] != null
-          ? List<String>.from(json['feedingTimes'])
+      feedingTimes: json['feedingTimes'] is List
+          ? List<String>.from(json['feedingTimes'] as List)
           : null,
-      amount: json['amount']?.toDouble(),
+      amount: _parseDouble(json['amount']),
       hardwareId: json['hardwareId'],
     );
+  }
+
+  /// Safely parses a value that may arrive as [int], [double], [String] or
+  /// null into an [int]. Prevents `.toInt()` crashes when the API returns
+  /// numbers as strings.
+  static int? _parseInt(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
+  /// Safely parses a value that may arrive as [num], [String] or null into a
+  /// [double]. MySQL DECIMAL columns are serialized as strings by the backend
+  /// (e.g. "8.00"), so calling `.toDouble()` directly on the JSON value
+  /// throws a NoSuchMethodError and would skip the whole pond.
+  static double? _parseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString().trim());
   }
 
   Map<String, dynamic> toJson() {

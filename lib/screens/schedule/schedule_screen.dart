@@ -30,6 +30,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Future<void> _loadPonds() async {
+    if (!mounted) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -37,28 +39,109 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
     try {
       await _apiService.loadToken();
+
       final result = await _apiService.getPonds();
 
-      if (result['success'] == true) {
-        final List<dynamic> pondsList = result['data'] ?? [];
+      if (!mounted) return;
+
+      if (result['success'] != true) {
         setState(() {
-          _ponds = pondsList
-              .map((pondJson) => Pond.fromJson(pondJson))
-              .toList();
+          _errorMessage =
+              result['message']?.toString() ?? 'Failed to load ponds';
           _isLoading = false;
         });
-      } else {
-        setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load ponds';
-          _isLoading = false;
-        });
+        return;
       }
-    } catch (e) {
+
+      final rawData = result['data'];
+
+      if (rawData == null) {
+        setState(() {
+          _ponds = [];
+          _isLoading = false;
+        });
+        return;
+      }
+
+      List<dynamic> pondsList;
+
+      // API may return:
+      // data: [...]
+      if (rawData is List) {
+        pondsList = rawData;
+      }
+      // Or:
+      // data: { items: [...] }
+      else if (rawData is Map && rawData['items'] is List) {
+        pondsList = rawData['items'] as List;
+      } else {
+        pondsList = [];
+      }
+
+      final List<Pond> loaded = [];
+
+      for (final item in pondsList) {
+        if (item is! Map) continue;
+
+        try {
+          final json = Map<String, dynamic>.from(item);
+          final pond = Pond.fromJson(json);
+
+          loaded.add(pond);
+
+          debugPrint(
+            '[Schedule] Pond loaded: '
+            'id=${pond.id}, '
+            'name=${pond.name}, '
+            'status=${pond.status}',
+          );
+        } catch (e) {
+          debugPrint('[Schedule] Invalid pond skipped: $e');
+        }
+      }
+
+      if (!mounted) return;
+
       setState(() {
-        _errorMessage = 'Error: $e';
+        _ponds = loaded;
+        _isLoading = false;
+      });
+
+      debugPrint(
+        '[Schedule] Total ponds=${_ponds.length}, '
+        'active=${_activePonds.length}',
+      );
+    } catch (e, stackTrace) {
+      debugPrint('[Schedule] Load error: $e');
+      debugPrintStack(stackTrace: stackTrace);
+
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = 'Error loading ponds: $e';
         _isLoading = false;
       });
     }
+  }
+  /// Ponds that are still active (i.e. NOT done/completed).
+  ///
+  /// Only active ponds are shown on the Schedule screen. Ponds that have been
+  /// marked as done live in the History screen instead, so they are filtered
+  /// out here.
+  List<Pond> get _activePonds {
+    return _ponds.where((pond) {
+      final status = pond.status.trim().toLowerCase();
+
+      // Only these statuses should go to History.
+      const doneStatuses = {
+        'done',
+        'completed',
+        'complete',
+        'finished',
+      };
+
+      return !doneStatuses.contains(status);
+    }).toList();
   }
 
   Future<void> _deletePond(Pond pond) async {
@@ -126,7 +209,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       PageTransitions.slideFromRight(CreatePondScreen(pond: pond)),
     );
 
-    if (result == true && mounted) {
+    if (!mounted) return;
+
+    if (result == true) {
       await _loadPonds();
     }
   }
@@ -139,7 +224,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       PageTransitions.slideFromRight(const CreatePondScreen()),
     );
 
-    if (result == true && mounted) {
+    if (!mounted) return;
+
+    if (result == true) {
       await _loadPonds();
     }
   }
@@ -277,7 +364,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           _buildSummaryCard(
                             context,
                             label: 'Active Ponds',
-                            value: '${_ponds.length}',
+                            value: '${_activePonds.length}',
                             detail: 'All running',
                             icon: Icons.check_circle,
                             color: AppTheme.successColor,
@@ -285,7 +372,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           _buildSummaryCard(
                             context,
                             label: 'Active Alerts',
-                            value: '${_ponds.where((p) => p.hasAlert).length}',
+                            value:
+                                '${_activePonds.where((p) => p.hasAlert).length}',
                             detail: 'Needs attention',
                             icon: Icons.warning_amber,
                             color: AppTheme.errorColor,
@@ -372,7 +460,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         ),
                       )
                     // Empty State
-                    else if (_ponds.isEmpty)
+                    else if (_activePonds.isEmpty)
                       Center(
                         child: Padding(
                           padding: const EdgeInsets.all(40.0),
@@ -387,7 +475,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'No ponds yet',
+                                'No active ponds',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
@@ -396,7 +484,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Create your first pond to get started',
+                                'Ponds you mark as Done move to History',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 14,
@@ -409,12 +497,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       )
                     // Ponds List
                     else
-                      ...List.generate(_ponds.length, (index) {
-                        final pond = _ponds[index];
+                      ...List.generate(_activePonds.length, (index) {
+                        final pond = _activePonds[index];
                         return Column(
                           children: [
                             _buildSiteCard(context, pond),
-                            if (index < _ponds.length - 1)
+                            if (index < _activePonds.length - 1)
                               const SizedBox(height: 16),
                           ],
                         );
@@ -669,16 +757,20 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 child: SizedBox(
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.push(
+                    onPressed: () async {
+                      final result = await Navigator.push(
                         context,
                         PageTransitions.slideFromRight(
-                          DashboardScreen(
-                            pondId: pond.id,
-                            pondName: pond.name,
-                          ),
+                          DashboardScreen(pondId: pond.id, pondName: pond.name),
                         ),
                       );
+                      // A pond can be toggled to "Done" from its dashboard; when
+                      // that happens it moves to History, so refresh the active
+                      // list here.
+                      if (!mounted) return;
+                      if (result == true && mounted) {
+                        await _loadPonds();
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,

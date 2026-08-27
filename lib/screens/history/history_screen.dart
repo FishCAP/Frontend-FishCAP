@@ -32,11 +32,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final result = await _api.getPonds();
     if (result['success'] == true && result['data'] is List) {
       setState(() {
-        _allPonds = result['data'] as List;
+        // The History screen only shows ponds that have been marked as
+        // Done/Completed (i.e. they have "moved to history"). Active ponds
+        // are displayed on the Schedule screen instead.
+        _allPonds = (result['data'] as List)
+            .where((pond) => pond is Map<String, dynamic> && _isPondDone(pond))
+            .toList();
         _filteredPonds = _allPonds;
       });
     }
     return result;
+  }
+
+  /// Returns true when a pond's status marks it as Done/Completed.
+  static bool _isPondDone(Map<String, dynamic> pond) {
+    final status = (pond['status']?.toString() ?? 'active').toLowerCase();
+    return status == 'done' || status == 'completed' || status == 'finished';
   }
 
   void _filterPonds(String query) {
@@ -87,7 +98,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       const SizedBox(width: 12),
                       Text(
                         '${l10n.appName} ${l10n.historyTitle}',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: AppTheme.textPrimary,
                             ),
@@ -98,7 +110,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     onPressed: () {
                       Navigator.push(
                         context,
-                        PageTransitions.slideFromRight(const NotificationsScreen()),
+                        PageTransitions.slideFromRight(
+                          const NotificationsScreen(),
+                        ),
                       );
                     },
                     icon: const Icon(
@@ -153,7 +167,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             // Search Bar
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 14),
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppTheme.cardColor,
                                 borderRadius: BorderRadius.circular(16),
@@ -177,7 +193,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                     child: TextField(
                                       onChanged: _filterPonds,
                                       decoration: InputDecoration(
-                                        hintText: 'Search by name or species...',
+                                        hintText:
+                                            'Search by name or species...',
                                         hintStyle: TextStyle(
                                           fontSize: 16,
                                           color: AppTheme.textSecondary,
@@ -203,7 +220,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 Expanded(
                                   child: _buildStatCard(
                                     context,
-                                    title: 'ACTIVE PONDS',
+                                    title: 'COMPLETED PONDS',
                                     value: '${_allPonds.length}',
                                     valueColor: AppTheme.textPrimary,
                                   ),
@@ -227,12 +244,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               const Center(
                                 child: Padding(
                                   padding: EdgeInsets.all(20),
-                                  child: Text('No ponds found'),
+                                  child: Text('No completed ponds yet'),
                                 ),
                               )
                             else
                               ..._filteredPonds.map((pond) {
-                                final name = pond['name']?.toString() ?? 'Unknown';
+                                final name =
+                                    pond['name']?.toString() ?? 'Unknown';
                                 final species =
                                     pond['species']?.toString() ?? 'Unknown';
                                 final status =
@@ -241,7 +259,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 final pondId = pond['id']?.toString() ?? '';
                                 final iconTypes =
                                     (pond['iconTypes'] as List<dynamic>?) ??
-                                        const [];
+                                    const [];
 
                                 return Column(
                                   children: [
@@ -261,9 +279,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                           MaterialPageRoute(
                                             builder: (context) =>
                                                 HistoryDetailScreen(
-                                              pondId: pondId,
-                                              pondName: name,
-                                            ),
+                                                  pondId: pondId,
+                                                  pondName: name,
+                                                ),
                                           ),
                                         );
                                       },
@@ -321,20 +339,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 color: AppTheme.primaryColor,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.history,
-                color: Colors.white,
-                size: 24,
-              ),
+              child: const Icon(Icons.history, color: Colors.white, size: 24),
             ),
             label: 'History',
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.person_outlined),
-            activeIcon: Icon(
-              Icons.person,
-              color: AppTheme.textSecondary,
-            ),
+            activeIcon: Icon(Icons.person, color: AppTheme.textSecondary),
             label: 'Profile',
           ),
         ],
@@ -347,25 +358,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       switch (type.toString()) {
         case 'water':
         case 'water_drop':
-          return Icon(
-            Icons.water_drop,
-            size: 16,
-            color: AppTheme.primaryColor,
-          );
+          return Icon(Icons.water_drop, size: 16, color: AppTheme.primaryColor);
         case 'temp':
         case 'thermostat':
-          return Icon(
-            Icons.thermostat,
-            size: 16,
-            color: AppTheme.primaryColor,
-          );
+          return Icon(Icons.thermostat, size: 16, color: AppTheme.primaryColor);
         case 'science':
         case 'chemistry':
-          return Icon(
-            Icons.science,
-            size: 16,
-            color: AppTheme.primaryColor,
-          );
+          return Icon(Icons.science, size: 16, color: AppTheme.primaryColor);
         case 'alert':
         case 'warning':
           return Icon(
@@ -484,7 +483,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
@@ -492,11 +494,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   child: Row(
                     children: [
                       if (hasAlert)
-                        Icon(
-                          Icons.warning_amber,
-                          size: 14,
-                          color: statusColor,
-                        ),
+                        Icon(Icons.warning_amber, size: 14, color: statusColor),
                       if (hasAlert) const SizedBox(width: 4),
                       Text(
                         status,

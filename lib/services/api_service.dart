@@ -152,23 +152,24 @@ class ApiService {
     return result;
   }
 
-
   // --------------------------------------------------
   // User profile
   // --------------------------------------------------
   Future<Map<String, dynamic>> getUserProfile() async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/users/me'), headers: _authHeaders())
-        .timeout(_timeout);
+    final response = await _sendAuthenticated(
+      (headers) =>
+          http.get(Uri.parse('$baseUrl/users/me'), headers: headers).timeout(_timeout),
+    );
 
     return _processResponse(response);
   }
 
   /// Fetch all ponds for the current user.
   Future<Map<String, dynamic>> getPonds() async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/ponds'), headers: _authHeaders())
-        .timeout(_timeout);
+    final response = await _sendAuthenticated(
+      (headers) =>
+          http.get(Uri.parse('$baseUrl/ponds'), headers: headers).timeout(_timeout),
+    );
 
     return _processResponse(response);
   }
@@ -184,13 +185,15 @@ class ApiService {
       body['phone'] = phone;
     }
 
-    final response = await http
-        .patch(
-          Uri.parse('$baseUrl/users/me'),
-          headers: _authHeaders(),
-          body: jsonEncode(body),
-        )
-        .timeout(_timeout);
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .patch(
+            Uri.parse('$baseUrl/users/me'),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout),
+    );
 
     return _processResponse(response);
   }
@@ -250,27 +253,33 @@ class ApiService {
   /// FishCap deployments still expose the older pondName/fishType/fishCount
   /// contract; a validation-only 400 is safely retried with that payload.
   Future<Map<String, dynamic>> createPond(Map<String, dynamic> pondData) async {
-    var response = await http
-        .post(
-          Uri.parse('$baseUrl/ponds'),
-          headers: _authHeaders(),
-          body: jsonEncode(pondData),
-        )
-        .timeout(_timeout);
-
-    if (response.statusCode == 400) {
-      final legacyPayload = <String, dynamic>{
-        'pondName': pondData['name'],
-        'fishType': pondData['species'],
-        'fishCount': pondData['estimatedCount'] ?? 0,
-      };
-      response = await http
+    var response = await _sendAuthenticated(
+      (headers) => http
           .post(
             Uri.parse('$baseUrl/ponds'),
-            headers: _authHeaders(),
-            body: jsonEncode(legacyPayload),
+            headers: headers,
+            body: jsonEncode(pondData),
           )
-          .timeout(_timeout);
+          .timeout(_timeout),
+    );
+
+    if (response.statusCode == 400) {
+      // Same fields as today's DTO but with only keys guaranteed to exist,
+      // so the retry can succeed even when optional values are missing.
+      final legacyPayload = <String, dynamic>{
+        'name': pondData['name'] ?? pondData['pondName'],
+        'species': pondData['species'] ?? pondData['fishType'],
+        'estimatedCount': pondData['estimatedCount'] ?? pondData['fishCount'] ?? 0,
+      };
+      response = await _sendAuthenticated(
+        (headers) => http
+            .post(
+              Uri.parse('$baseUrl/ponds'),
+              headers: headers,
+              body: jsonEncode(legacyPayload),
+            )
+            .timeout(_timeout),
+      );
     }
 
     return _processResponse(response);
@@ -296,18 +305,22 @@ class ApiService {
 
   /// Delete a pond by ID.
   Future<Map<String, dynamic>> deletePond(String pondId) async {
-    final response = await http
-        .delete(Uri.parse('$baseUrl/ponds/$pondId'), headers: _authHeaders())
-        .timeout(_timeout);
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .delete(Uri.parse('$baseUrl/ponds/$pondId'), headers: headers)
+          .timeout(_timeout),
+    );
 
     return _processResponse(response);
   }
 
   /// Fetch a single pond's full details by ID.
   Future<Map<String, dynamic>> getPondById(String pondId) async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/ponds/$pondId'), headers: _authHeaders())
-        .timeout(_timeout);
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .get(Uri.parse('$baseUrl/ponds/$pondId'), headers: headers)
+          .timeout(_timeout),
+    );
 
     return _processResponse(response);
   }
@@ -330,63 +343,72 @@ class ApiService {
 
   /// Fetch all sensor readings from the backend.
   Future<Map<String, dynamic>> getAllSensorData() async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/sensors/data'), headers: _authHeaders())
-        .timeout(_timeout);
+    final response = await _sendAuthenticated(
+      (headers) =>
+          http.get(Uri.parse('$baseUrl/sensors/data'), headers: headers).timeout(_timeout),
+    );
 
     return _processResponse(response);
   }
 
   /// Create a new feed schedule for a pond.
-Future<Map<String, dynamic>> addFeedSchedule({
-  required String pondId,
-  required String time,
-  required String title,
-}) async {
-  final response = await http
-      .post(
-        Uri.parse('$baseUrl/ponds/$pondId/feed-schedules'),
-        headers: _authHeaders(),
-        body: jsonEncode({'time': time, 'title': title}),
-      )
-      .timeout(_timeout);
+  Future<Map<String, dynamic>> addFeedSchedule({
+    required String pondId,
+    required String time,
+    required String title,
+  }) async {
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .post(
+            Uri.parse('$baseUrl/ponds/$pondId/feed-schedules'),
+            headers: headers,
+            body: jsonEncode({'time': time, 'title': title}),
+          )
+          .timeout(_timeout),
+    );
 
-  return _processResponse(response);
-}
+    return _processResponse(response);
+  }
 
   Future<Map<String, dynamic>> updatePond(
     String pondId,
     Map<String, dynamic> pondData,
   ) async {
     // First try the current payload as-is
-    var response = await http
-        .patch(
-          Uri.parse('$baseUrl/ponds/$pondId'),
-          headers: _authHeaders(),
-          body: jsonEncode(pondData),
-        )
-        .timeout(_timeout);
+    var response = await _sendAuthenticated(
+      (headers) => http
+          .patch(
+            Uri.parse('$baseUrl/ponds/$pondId'),
+            headers: headers,
+            body: jsonEncode(pondData),
+          )
+          .timeout(_timeout),
+    );
 
     // If 400 (validation error), try mapping to legacy field names
     if (response.statusCode == 400) {
       final legacyPayload = <String, dynamic>{
-        if (pondData.containsKey('name')) 'pondName': pondData['name'],
-        if (pondData.containsKey('species')) 'fishType': pondData['species'],
-        if (pondData.containsKey('fishCount')) 'fishCount': pondData['fishCount'],
-        if (pondData.containsKey('estimatedCount')) 'fishCount': pondData['estimatedCount'],
-        // Add any other fields your backend expects (e.g., 'status')
+        if (pondData.containsKey('name')) 'name': pondData['name'],
+        if (pondData.containsKey('species')) 'species': pondData['species'],
+        if (pondData.containsKey('fishCount')) 'estimatedCount': pondData['fishCount'],
+        if (pondData.containsKey('estimatedCount'))
+          'estimatedCount': pondData['estimatedCount'],
+        if (pondData.containsKey('status')) 'status': pondData['status'],
       };
-      response = await http
-          .patch(
-            Uri.parse('$baseUrl/ponds/$pondId'),
-            headers: _authHeaders(),
-            body: jsonEncode(legacyPayload),
-          )
-          .timeout(_timeout);
+      response = await _sendAuthenticated(
+        (headers) => http
+            .patch(
+              Uri.parse('$baseUrl/ponds/$pondId'),
+              headers: headers,
+              body: jsonEncode(legacyPayload),
+            )
+            .timeout(_timeout),
+      );
     }
 
     return _processResponse(response);
   }
+
   // --------------------------------------------------
   // Helper methods
   // --------------------------------------------------
@@ -398,6 +420,27 @@ Future<Map<String, dynamic>> addFeedSchedule({
       };
     }
     return {'Content-Type': 'application/json'};
+  }
+
+  /// Runs an authenticated request and recovers from stale sessions.
+  ///
+  /// If the first attempt answers 401 (token missing in memory, expired, or
+  /// minted by an older deployment with a different JWT_SECRET), the
+  /// persisted token is reloaded once and the request retried. When the
+  /// retry still fails, the dead token is cleared so the app returns to the
+  /// login flow instead of looping on "Unauthorized".
+  Future<http.Response> _sendAuthenticated(
+    Future<http.Response> Function(Map<String, String> headers) action,
+  ) async {
+    final response = await action(_authHeaders());
+    if (response.statusCode != 401) return response;
+
+    await loadToken();
+    final retried = await action(_authHeaders());
+    if (retried.statusCode == 401) {
+      await clearToken();
+    }
+    return retried;
   }
 
   /// Convert an http.Response into a standardized map.
@@ -446,6 +489,17 @@ Future<Map<String, dynamic>> addFeedSchedule({
       message = decoded['error'] as String;
     }
 
-    return {'success': false, 'message': message};
+    // Turn the raw passport "Unauthorized" into something actionable for
+    // the user instead of showing the cryptic HTTP phrase.
+    if (response.statusCode == 401 &&
+        (message == 'Unauthorized' || message.isEmpty)) {
+      message = 'Your session has expired. Please sign in again.';
+    }
+
+    return {
+      'success': false,
+      'statusCode': response.statusCode,
+      'message': message,
+    };
   }
 }

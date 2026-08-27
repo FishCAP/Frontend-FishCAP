@@ -21,15 +21,14 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
   final _estCountController = TextEditingController();
   final _startDateController = TextEditingController();
   final _endDateController = TextEditingController();
-  final _feedingTimeController = TextEditingController();
-  final _amountController = TextEditingController();
   final _hardwareIdController = TextEditingController();
 
   DateTime? _startDate;
   DateTime? _endDate;
-  TimeOfDay? _feedingTime;
-  final List<String> _feedingTimes = [];
   bool _isLoading = false;
+
+  // Each feeding schedule has its own time and amount.
+  final List<Map<String, dynamic>> _feedingSchedules = [];
 
   @override
   void initState() {
@@ -43,7 +42,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
     _siteLocationController.text = pond.location ?? pond.name;
     _speciesController.text = pond.species;
     _estCountController.text = pond.estimatedCount?.toString() ?? '';
-    // If dates are stored in ISO, format them for display
+
     if (pond.startDate != null && pond.startDate!.isNotEmpty) {
       try {
         final parsed = DateTime.parse(pond.startDate!);
@@ -53,6 +52,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
         _startDateController.text = pond.startDate!;
       }
     }
+
     if (pond.endDate != null && pond.endDate!.isNotEmpty) {
       try {
         final parsed = DateTime.parse(pond.endDate!);
@@ -62,10 +62,19 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
         _endDateController.text = pond.endDate!;
       }
     }
-    _amountController.text = pond.amount?.toString() ?? '';
+
     _hardwareIdController.text = pond.hardwareId ?? '';
-    if (pond.feedingTimes != null && pond.feedingTimes!.isNotEmpty) {
-      _feedingTimes.addAll(pond.feedingTimes!);
+
+    // Older data only contains feedingTimes. Use pond.amount as a fallback
+    // amount for those existing schedules.
+    final oldAmount = pond.amount ?? 0;
+    if (pond.feedingTimes != null) {
+      for (final time in pond.feedingTimes!) {
+        _feedingSchedules.add({
+          'time': time,
+          'amount': oldAmount,
+        });
+      }
     }
   }
 
@@ -76,34 +85,40 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
     _estCountController.dispose();
     _startDateController.dispose();
     _endDateController.dispose();
-    _feedingTimeController.dispose();
-    _amountController.dispose();
     _hardwareIdController.dispose();
     super.dispose();
   }
 
   Future<void> _selectStartDate() async {
-    final DateTime? picked = await showDatePicker(
+    final now = DateTime.now();
+    final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
+      initialDate: _startDate ?? now,
+      firstDate: now,
       lastDate: DateTime(2100),
     );
+
     if (picked != null) {
       setState(() {
         _startDate = picked;
         _startDateController.text = DateFormat('MM/dd/yyyy').format(picked);
+
+        if (_endDate != null && _endDate!.isBefore(picked)) {
+          _endDate = null;
+          _endDateController.clear();
+        }
       });
     }
   }
 
   Future<void> _selectEndDate() async {
-    final DateTime? picked = await showDatePicker(
+    final picked = await showDatePicker(
       context: context,
-      initialDate: _startDate ?? DateTime.now(),
+      initialDate: _endDate ?? _startDate ?? DateTime.now(),
       firstDate: _startDate ?? DateTime.now(),
       lastDate: DateTime(2100),
     );
+
     if (picked != null) {
       setState(() {
         _endDate = picked;
@@ -112,63 +127,185 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
     }
   }
 
-  Future<void> _selectFeedingTime() async {
-    final TimeOfDay? picked = await showTimePicker(
+  Future<void> _showAddFeedingDialog() async {
+    TimeOfDay? selectedTime;
+    final amountController = TextEditingController();
+
+    final result = await showDialog<Map<String, dynamic>>(
       context: context,
-      initialTime: TimeOfDay.now(),
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add Feeding Schedule'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    readOnly: true,
+                    decoration: InputDecoration(
+                      labelText: 'Feeding Time',
+                      hintText: 'Select time',
+                      prefixIcon: const Icon(Icons.access_time),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.schedule),
+                        onPressed: () async {
+                          final picked = await showTimePicker(
+                            context: dialogContext,
+                            initialTime: selectedTime ?? TimeOfDay.now(),
+                          );
+                          if (picked != null) {
+                            setDialogState(() => selectedTime = picked);
+                          }
+                        },
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    controller: TextEditingController(
+                      text: selectedTime == null
+                          ? ''
+                          : selectedTime!.format(dialogContext),
+                    ),
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: dialogContext,
+                        initialTime: selectedTime ?? TimeOfDay.now(),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => selectedTime = picked);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Amount',
+                      hintText: '0.00',
+                      suffixText: 'kg',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (selectedTime == null) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(content: Text('Please select a time')),
+                      );
+                      return;
+                    }
+
+                    final amount = double.tryParse(
+                      amountController.text.trim(),
+                    );
+                    if (amount == null || amount <= 0) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter a valid amount'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final serverTime =
+                        '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}';
+
+                    Navigator.pop(dialogContext, {
+                      'time': serverTime,
+                      'amount': amount,
+                    });
+                  },
+                  child: const Text('Add'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
-    if (picked != null) {
-      setState(() {
-        _feedingTime = picked;
-        _feedingTimeController.text = picked.format(
-          context,
-        ); // Display as user-friendly
-      });
+
+    amountController.dispose();
+
+    if (result == null || !mounted) return;
+
+    final newTime = result['time'] as String;
+    final newAmount = (result['amount'] as num).toDouble();
+
+    final alreadyExists = _feedingSchedules.any(
+      (item) => item['time'] == newTime,
+    );
+
+    if (alreadyExists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This feeding time already exists')),
+      );
+      return;
     }
+
+    setState(() {
+      _feedingSchedules.add({
+        'time': newTime,
+        'amount': newAmount,
+      });
+      _feedingSchedules.sort(
+        (a, b) => (a['time'] as String).compareTo(b['time'] as String),
+      );
+    });
   }
 
-  void _addFeedingTime() {
-    if (_feedingTime != null && _feedingTimeController.text.isNotEmpty) {
-      // Convert to 24-hour HH:mm for the server
-      final serverTime =
-          '${_feedingTime!.hour.toString().padLeft(2, '0')}:${_feedingTime!.minute.toString().padLeft(2, '0')}';
-      setState(() {
-        _feedingTimes.add(serverTime); // e.g. "13:09"
-        _feedingTimeController.clear();
-        _feedingTime = null;
-      });
+  void _removeFeedingSchedule(int index) {
+    setState(() => _feedingSchedules.removeAt(index));
+  }
+
+  String _formatTime(String value) {
+    try {
+      final parts = value.split(':');
+      final hour = int.parse(parts[0]);
+      final minute = int.parse(parts[1]);
+      final time = TimeOfDay(hour: hour, minute: minute);
+      return time.format(context);
+    } catch (_) {
+      return value;
     }
   }
 
   Future<void> _saveSchedule() async {
-    if (!_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_feedingSchedules.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add at least one feeding time')),
+      );
       return;
     }
 
     if (!mounted) return;
-
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     final apiService = ApiService.instance;
+    final pondData = <String, dynamic>{
+      'name': _siteLocationController.text.trim(),
+      'location': _siteLocationController.text.trim(),
+      'species': _speciesController.text.trim(),
+    };
 
-    // Build payload with proper types
-    final Map<String, dynamic> pondData = {};
-
-    // Required fields
-    pondData['name'] = _siteLocationController.text.trim();
-    pondData['location'] = _siteLocationController.text.trim();
-    pondData['species'] = _speciesController.text.trim();
-
-    // Numeric fields – send as numbers
     final estCount = int.tryParse(_estCountController.text.trim());
     if (estCount != null) pondData['estimatedCount'] = estCount;
 
-    final amount = double.tryParse(_amountController.text.trim());
-    if (amount != null) pondData['amount'] = amount;
-
-    // Dates – send as ISO‑8601 (YYYY-MM-DD)
     if (_startDate != null) {
       pondData['startDate'] = DateFormat('yyyy-MM-dd').format(_startDate!);
     }
@@ -176,18 +313,30 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
       pondData['endDate'] = DateFormat('yyyy-MM-dd').format(_endDate!);
     }
 
-    // Feeding times – already in HH:mm format
-    if (_feedingTimes.isNotEmpty) {
-      pondData['feedingTimes'] = _feedingTimes;
-    }
+    // Keep the old feedingTimes field for compatibility with the current API,
+    // and also send the new per-time amount data.
+    pondData['feedingTimes'] = _feedingSchedules
+        .map((item) => item['time'] as String)
+        .toList();
+    pondData['feedingSchedules'] = _feedingSchedules
+        .map(
+          (item) => {
+            'time': item['time'],
+            'amount': item['amount'],
+          },
+        )
+        .toList();
 
-    // Hardware ID – send as string
+    // Keep amount populated for compatibility with the existing Pond model/API.
+    final totalAmount = _feedingSchedules.fold<double>(
+      0,
+      (sum, item) => sum + (item['amount'] as num).toDouble(),
+    );
+    pondData['amount'] = totalAmount;
+
     if (_hardwareIdController.text.trim().isNotEmpty) {
       pondData['hardwareId'] = _hardwareIdController.text.trim();
     }
-
-    // 🔥 IMPORTANT: Do NOT send status, statusColor, hasAlert, temperature
-    // These are server‑managed or read‑only.
 
     Map<String, dynamic> result;
     try {
@@ -209,12 +358,8 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
     }
 
     if (!mounted) return;
+    setState(() => _isLoading = false);
 
-    setState(() {
-      _isLoading = false;
-    });
-
-    // 🔥 Better error extraction
     if (result['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -226,32 +371,34 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
           backgroundColor: AppTheme.successColor,
         ),
       );
+      // Home/Schedule must refresh its pond list when this returns true.
       Navigator.pop(context, true);
-    } else {
-      // Try to extract detailed validation errors
-      String errorMsg = result['message'] ?? 'Failed to save pond';
-      if (result['errors'] != null && result['errors'] is Map) {
-        final errors = result['errors'] as Map;
+      return;
+    }
+
+    String errorMsg = result['message'] ?? 'Failed to save pond';
+    if (result['errors'] is Map) {
+      final errors = result['errors'] as Map;
+      if (errors.isNotEmpty) {
         final firstError = errors.values.first;
         if (firstError is List && firstError.isNotEmpty) {
           errorMsg = firstError.first.toString();
+        } else {
+          errorMsg = firstError.toString();
         }
-      } else if (result['error'] != null) {
-        errorMsg = result['error'].toString();
       }
-      // If the server returns a string in a different key, add it here
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $errorMsg'),
-          backgroundColor: AppTheme.errorColor,
-        ),
-      );
+    } else if (result['error'] != null) {
+      errorMsg = result['error'].toString();
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Error: $errorMsg'),
+        backgroundColor: AppTheme.errorColor,
+      ),
+    );
   }
 
-  // ... (rest of the build method remains exactly as previously provided)
-  // I'll include it for completeness below.
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -261,6 +408,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final horizontalPadding = constraints.maxWidth > 600 ? 48.0 : 20.0;
+
             return SingleChildScrollView(
               padding: EdgeInsets.symmetric(
                 horizontal: horizontalPadding,
@@ -274,7 +422,6 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Header
                         Row(
                           children: [
                             IconButton(
@@ -287,7 +434,9 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                             const SizedBox(width: 8),
                             Text(
                               l10n.createNewSchedule,
-                              style: Theme.of(context).textTheme.headlineMedium
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.textPrimary,
@@ -295,10 +444,8 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                             ),
                           ],
                         ),
-
                         const SizedBox(height: 24),
 
-                        // Header Image
                         Container(
                           height: 180,
                           decoration: BoxDecoration(
@@ -339,7 +486,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                       ),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: Text(
+                                    child: const Text(
                                       'OPERATIONAL MODE',
                                       style: TextStyle(
                                         fontSize: 12,
@@ -364,160 +511,92 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 32),
 
-                        // Pond Selection Section
-                        Text(
-                          'Pond Selection',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                        ),
-
+                        _sectionTitle(context, 'Pond Selection'),
                         const SizedBox(height: 16),
-
-                        // Site Location
                         TextFormField(
                           controller: _siteLocationController,
-                          decoration: InputDecoration(
-                            labelText: 'Site Location',
-                            hintText: 'Enter site location',
-                            prefixIcon: const Icon(
-                              Icons.location_on,
-                              color: AppTheme.primaryColor,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                          decoration: _inputDecoration(
+                            label: 'Site Location',
+                            hint: 'Enter site location',
+                            icon: Icons.location_on,
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter site location';
-                            }
-                            return null;
-                          },
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                                  ? 'Please enter site location'
+                                  : null,
                         ),
 
                         const SizedBox(height: 24),
-
-                        // Batch Info Section
-                        Text(
-                          'Batch Info',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                        ),
-
+                        _sectionTitle(context, 'Batch Info'),
                         const SizedBox(height: 16),
-
                         Row(
                           children: [
-                            // Current Species
                             Expanded(
                               child: TextFormField(
                                 controller: _speciesController,
-                                decoration: InputDecoration(
-                                  labelText: 'Current Species',
-                                  hintText: 'e.g., Tilapia',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                                decoration: _inputDecoration(
+                                  label: 'Current Species',
+                                  hint: 'e.g., Tilapia',
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Required';
-                                  }
-                                  return null;
-                                },
+                                validator: (value) =>
+                                    value == null || value.trim().isEmpty
+                                        ? 'Required'
+                                        : null,
                               ),
                             ),
                             const SizedBox(width: 16),
-                            // Est. Count
                             Expanded(
                               child: TextFormField(
                                 controller: _estCountController,
-                                decoration: InputDecoration(
-                                  labelText: 'Est. Count',
-                                  hintText: '0',
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                                decoration: _inputDecoration(
+                                  label: 'Est. Count',
+                                  hint: '0',
                                 ),
                                 keyboardType: TextInputType.number,
-                                validator: (value) {
-                                  if (value == null || value.isEmpty) {
-                                    return 'Required';
-                                  }
-                                  return null;
-                                },
+                                validator: (value) =>
+                                    value == null || value.trim().isEmpty
+                                        ? 'Required'
+                                        : null,
                               ),
                             ),
                           ],
                         ),
 
                         const SizedBox(height: 24),
-
-                        // Start Date
                         TextFormField(
                           controller: _startDateController,
-                          decoration: InputDecoration(
-                            labelText: 'Start Date',
-                            hintText: 'mm/dd/yyyy',
-                            prefixIcon: const Icon(
-                              Icons.calendar_today,
-                              color: AppTheme.primaryColor,
-                            ),
-                            suffixIcon: IconButton(
-                              onPressed: _selectStartDate,
-                              icon: const Icon(
-                                Icons.calendar_month,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
                           readOnly: true,
                           onTap: _selectStartDate,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select start date';
-                            }
-                            return null;
-                          },
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // End Date
-                        TextFormField(
-                          controller: _endDateController,
-                          decoration: InputDecoration(
-                            labelText: 'End Date',
-                            hintText: 'mm/dd/yyyy',
-                            prefixIcon: const Icon(
-                              Icons.calendar_today,
-                              color: AppTheme.primaryColor,
-                            ),
-                            suffixIcon: IconButton(
-                              onPressed: _selectEndDate,
-                              icon: const Icon(
-                                Icons.calendar_month,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                          decoration: _inputDecoration(
+                            label: 'Start Date',
+                            hint: 'mm/dd/yyyy',
+                            icon: Icons.calendar_today,
+                            suffix: IconButton(
+                              onPressed: _selectStartDate,
+                              icon: const Icon(Icons.calendar_month),
                             ),
                           ),
+                          validator: (value) =>
+                              value == null || value.isEmpty
+                                  ? 'Please select start date'
+                                  : null,
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _endDateController,
                           readOnly: true,
                           onTap: _selectEndDate,
+                          decoration: _inputDecoration(
+                            label: 'End Date',
+                            hint: 'mm/dd/yyyy',
+                            icon: Icons.calendar_today,
+                            suffix: IconButton(
+                              onPressed: _selectEndDate,
+                              icon: const Icon(Icons.calendar_month),
+                            ),
+                          ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return 'Please select end date';
@@ -532,134 +611,80 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                         ),
 
                         const SizedBox(height: 32),
-
-                        // Schedule Settings Section
-                        Text(
-                          'Schedule Settings',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Feeding Time
-                        TextFormField(
-                          controller: _feedingTimeController,
-                          decoration: InputDecoration(
-                            labelText: 'Feeding Time',
-                            hintText: 'Select time',
-                            prefixIcon: const Icon(
-                              Icons.access_time,
-                              color: AppTheme.primaryColor,
-                            ),
-                            suffixIcon: IconButton(
-                              onPressed: _selectFeedingTime,
-                              icon: const Icon(
-                                Icons.schedule,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          readOnly: true,
-                          onTap: _selectFeedingTime,
-                        ),
-
+                        _sectionTitle(context, 'Feeding Schedule'),
                         const SizedBox(height: 12),
 
-                        // Add Time Button
-                        OutlinedButton.icon(
-                          onPressed: _addFeedingTime,
-                          icon: const Icon(
-                            Icons.add,
-                            color: AppTheme.primaryColor,
-                          ),
-                          label: const Text(
-                            'Add Time',
-                            style: TextStyle(color: AppTheme.primaryColor),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(
-                              color: AppTheme.primaryColor,
-                            ),
-                            shape: RoundedRectangleBorder(
+                        if (_feedingSchedules.isEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withValues(
+                                alpha: 0.06,
+                              ),
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppTheme.primaryColor.withValues(
+                                  alpha: 0.2,
+                                ),
+                              ),
+                            ),
+                            child: const Text(
+                              'No feeding times added yet. Tap + Add Time to create a feeding time and amount.',
+                              style: TextStyle(height: 1.4),
+                            ),
+                          )
+                        else
+                          Column(
+                            children: [
+                              for (int index = 0;
+                                  index < _feedingSchedules.length;
+                                  index++)
+                                _feedingScheduleCard(index),
+                            ],
+                          ),
+
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _showAddFeedingDialog,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Time'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(
+                                color: AppTheme.primaryColor,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
-                        ),
-
-                        const SizedBox(height: 16),
-
-                        // Amount (kg)
-                        TextFormField(
-                          controller: _amountController,
-                          decoration: InputDecoration(
-                            labelText: 'Amount (kg)',
-                            hintText: '0.00',
-                            suffixText: 'kg',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          keyboardType: TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter amount';
-                            }
-                            return null;
-                          },
                         ),
 
                         const SizedBox(height: 32),
-
-                        // Hardware Section
-                        Text(
-                          'Hardware',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                        ),
-
+                        _sectionTitle(context, 'Hardware'),
                         const SizedBox(height: 16),
-
-                        // Hardware Product ID
                         TextFormField(
                           controller: _hardwareIdController,
-                          decoration: InputDecoration(
-                            labelText: 'Hardware Product ID',
-                            hintText: 'e.g., FEEDER-09-AX',
-                            prefixIcon: const Icon(
-                              Icons.memory,
-                              color: AppTheme.primaryColor,
-                            ),
-                            suffixIcon: const Icon(
+                          decoration: _inputDecoration(
+                            label: 'Hardware Product ID',
+                            hint: 'e.g., FEEDER-09-AX',
+                            icon: Icons.memory,
+                            suffix: const Icon(
                               Icons.verified,
                               color: AppTheme.successColor,
                             ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
                           ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter hardware ID';
-                            }
-                            return null;
-                          },
+                          validator: (value) =>
+                              value == null || value.trim().isEmpty
+                                  ? 'Please enter hardware ID'
+                                  : null,
                         ),
 
                         const SizedBox(height: 32),
-
-                        // Save Button
                         SizedBox(
                           width: double.infinity,
                           height: 56,
@@ -704,10 +729,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                   ),
                           ),
                         ),
-
                         const SizedBox(height: 12),
-
-                        // Cancel Button
                         SizedBox(
                           width: double.infinity,
                           height: 56,
@@ -721,7 +743,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: Text(
+                            child: const Text(
                               'Cancel',
                               style: TextStyle(
                                 fontSize: 16,
@@ -731,10 +753,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                             ),
                           ),
                         ),
-
                         const SizedBox(height: 24),
-
-                        // Info Tip
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
@@ -744,10 +763,9 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                               color: AppTheme.primaryColor.withValues(
                                 alpha: 0.3,
                               ),
-                              width: 1,
                             ),
                           ),
-                          child: Row(
+                          child: const Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Icon(
@@ -755,7 +773,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                 color: AppTheme.primaryColor,
                                 size: 20,
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -768,7 +786,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                         color: AppTheme.primaryColor,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    SizedBox(height: 4),
                                     Text(
                                       'Optimal feeding occurs when water oxygen levels are above 5.0 mg/L. Sensors will auto-verify conditions before dispensing.',
                                       style: TextStyle(
@@ -783,10 +801,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                             ],
                           ),
                         ),
-
-                        const SizedBox(
-                          height: 100,
-                        ), // Space for bottom navigation
+                        const SizedBox(height: 100),
                       ],
                     ),
                   ),
@@ -795,6 +810,99 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _sectionTitle(BuildContext context, String title) {
+    return Text(
+      title,
+      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textPrimary,
+          ),
+    );
+  }
+
+  InputDecoration _inputDecoration({
+    required String label,
+    required String hint,
+    IconData? icon,
+    Widget? suffix,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: icon == null
+          ? null
+          : Icon(icon, color: AppTheme.primaryColor),
+      suffixIcon: suffix,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    );
+  }
+
+  Widget _feedingScheduleCard(int index) {
+    final schedule = _feedingSchedules[index];
+    final time = schedule['time'] as String;
+    final amount = (schedule['amount'] as num).toDouble();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppTheme.primaryColor.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.access_time,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _formatTime(time),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${amount.toStringAsFixed(2)} kg',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Remove',
+            onPressed: () => _removeFeedingSchedule(index),
+            icon: const Icon(Icons.delete_outline),
+            color: AppTheme.errorColor,
+          ),
+        ],
       ),
     );
   }
