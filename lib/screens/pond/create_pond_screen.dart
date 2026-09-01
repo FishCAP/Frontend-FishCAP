@@ -70,10 +70,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
     final oldAmount = pond.amount ?? 0;
     if (pond.feedingTimes != null) {
       for (final time in pond.feedingTimes!) {
-        _feedingSchedules.add({
-          'time': time,
-          'amount': oldAmount,
-        });
+        _feedingSchedules.add({'time': time, 'amount': oldAmount});
       }
     }
   }
@@ -130,6 +127,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
   Future<void> _showAddFeedingDialog() async {
     TimeOfDay? selectedTime;
     final amountController = TextEditingController();
+    final timeController = TextEditingController();
 
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -155,7 +153,12 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                             initialTime: selectedTime ?? TimeOfDay.now(),
                           );
                           if (picked != null) {
-                            setDialogState(() => selectedTime = picked);
+                            setDialogState(() {
+                              selectedTime = picked;
+                              timeController.text = picked.format(
+                                dialogContext,
+                              );
+                            });
                           }
                         },
                       ),
@@ -163,18 +166,17 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    controller: TextEditingController(
-                      text: selectedTime == null
-                          ? ''
-                          : selectedTime!.format(dialogContext),
-                    ),
+                    controller: timeController,
                     onTap: () async {
                       final picked = await showTimePicker(
                         context: dialogContext,
                         initialTime: selectedTime ?? TimeOfDay.now(),
                       );
                       if (picked != null) {
-                        setDialogState(() => selectedTime = picked);
+                        setDialogState(() {
+                          selectedTime = picked;
+                          timeController.text = picked.format(dialogContext);
+                        });
                       }
                     },
                   ),
@@ -239,6 +241,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
     );
 
     amountController.dispose();
+    timeController.dispose();
 
     if (result == null || !mounted) return;
 
@@ -257,10 +260,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
     }
 
     setState(() {
-      _feedingSchedules.add({
-        'time': newTime,
-        'amount': newAmount,
-      });
+      _feedingSchedules.add({'time': newTime, 'amount': newAmount});
       _feedingSchedules.sort(
         (a, b) => (a['time'] as String).compareTo(b['time'] as String),
       );
@@ -319,12 +319,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
         .map((item) => item['time'] as String)
         .toList();
     pondData['feedingSchedules'] = _feedingSchedules
-        .map(
-          (item) => {
-            'time': item['time'],
-            'amount': item['amount'],
-          },
-        )
+        .map((item) => {'time': item['time'], 'amount': item['amount']})
         .toList();
 
     // Keep amount populated for compatibility with the existing Pond model/API.
@@ -432,15 +427,19 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Text(
-                              l10n.createNewSchedule,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineMedium
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimary,
-                                  ),
+                            Expanded(
+                              child: Text(
+                                l10n.createNewSchedule,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textPrimary,
+                                    ),
+                              ),
                             ),
                           ],
                         ),
@@ -524,8 +523,8 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                           ),
                           validator: (value) =>
                               value == null || value.trim().isEmpty
-                                  ? 'Please enter site location'
-                                  : null,
+                              ? 'Please enter site location'
+                              : null,
                         ),
 
                         const SizedBox(height: 24),
@@ -542,8 +541,8 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                 ),
                                 validator: (value) =>
                                     value == null || value.trim().isEmpty
-                                        ? 'Required'
-                                        : null,
+                                    ? 'Required'
+                                    : null,
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -557,8 +556,8 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                 keyboardType: TextInputType.number,
                                 validator: (value) =>
                                     value == null || value.trim().isEmpty
-                                        ? 'Required'
-                                        : null,
+                                    ? 'Required'
+                                    : null,
                               ),
                             ),
                           ],
@@ -578,10 +577,9 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                               icon: const Icon(Icons.calendar_month),
                             ),
                           ),
-                          validator: (value) =>
-                              value == null || value.isEmpty
-                                  ? 'Please select start date'
-                                  : null,
+                          validator: (value) => value == null || value.isEmpty
+                              ? 'Please select start date'
+                              : null,
                         ),
                         const SizedBox(height: 16),
                         TextFormField(
@@ -637,9 +635,11 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                         else
                           Column(
                             children: [
-                              for (int index = 0;
-                                  index < _feedingSchedules.length;
-                                  index++)
+                              for (
+                                int index = 0;
+                                index < _feedingSchedules.length;
+                                index++
+                              )
                                 _feedingScheduleCard(index),
                             ],
                           ),
@@ -680,8 +680,8 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                           ),
                           validator: (value) =>
                               value == null || value.trim().isEmpty
-                                  ? 'Please enter hardware ID'
-                                  : null,
+                              ? 'Please enter hardware ID'
+                              : null,
                         ),
 
                         const SizedBox(height: 32),
@@ -818,9 +818,9 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimary,
-          ),
+        fontWeight: FontWeight.bold,
+        color: AppTheme.textPrimary,
+      ),
     );
   }
 
@@ -837,9 +837,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
           ? null
           : Icon(icon, color: AppTheme.primaryColor),
       suffixIcon: suffix,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
 
@@ -867,10 +865,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
-              Icons.access_time,
-              color: AppTheme.primaryColor,
-            ),
+            child: const Icon(Icons.access_time, color: AppTheme.primaryColor),
           ),
           const SizedBox(width: 12),
           Expanded(

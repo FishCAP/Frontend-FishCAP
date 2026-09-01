@@ -123,6 +123,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       });
     }
   }
+
   /// Ponds that are still active (i.e. NOT done/completed).
   ///
   /// Only active ponds are shown on the Schedule screen. Ponds that have been
@@ -133,12 +134,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       final status = pond.status.trim().toLowerCase();
 
       // Only these statuses should go to History.
-      const doneStatuses = {
-        'done',
-        'completed',
-        'complete',
-        'finished',
-      };
+      const doneStatuses = {'done', 'completed', 'complete', 'finished'};
 
       return !doneStatuses.contains(status);
     }).toList();

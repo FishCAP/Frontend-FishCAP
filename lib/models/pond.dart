@@ -1,3 +1,40 @@
+/// One feeding schedule row as returned by the backend's pond list/detail
+/// payloads: `{ id, time, title, amount, status }`.
+class FeedSchedule {
+  final String id;
+  final String time;
+  final String title;
+  final double? amount;
+  final String status;
+
+  const FeedSchedule({
+    this.id = '',
+    required this.time,
+    this.title = '',
+    this.amount,
+    this.status = 'Scheduled',
+  });
+
+  factory FeedSchedule.fromJson(Map<String, dynamic> json) {
+    return FeedSchedule(
+      id: json['id']?.toString() ?? '',
+      time: json['time']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      amount: _parsePondDecimal(json['amount']),
+      status: json['status']?.toString() ?? 'Scheduled',
+    );
+  }
+}
+
+/// Safely parses a value that may arrive as [num], [String] or null into a
+/// [double]. Postgres/MySQL DECIMAL columns are serialized as strings by the
+/// backend (e.g. "8.00"), so calling `.toDouble()` directly would throw.
+double? _parsePondDecimal(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString().trim());
+}
+
 class Pond {
   final String id;
   final String name;
@@ -15,6 +52,7 @@ class Pond {
   final List<String>? feedingTimes;
   final double? amount;
   final String? hardwareId;
+  final List<FeedSchedule> feedSchedules;
 
   Pond({
     required this.id,
@@ -33,6 +71,7 @@ class Pond {
     this.feedingTimes,
     this.amount,
     this.hardwareId,
+    this.feedSchedules = const [],
   });
 
   /// Whether this pond has been marked as done/completed.
@@ -73,6 +112,12 @@ class Pond {
           : null,
       amount: _parseDouble(json['amount']),
       hardwareId: json['hardwareId'],
+      feedSchedules: json['feedSchedules'] is List
+          ? (json['feedSchedules'] as List)
+                .whereType<Map>()
+                .map((e) => FeedSchedule.fromJson(Map<String, dynamic>.from(e)))
+                .toList()
+          : const [],
     );
   }
 
@@ -113,6 +158,17 @@ class Pond {
       'feedingTimes': feedingTimes,
       'amount': amount,
       'hardwareId': hardwareId,
+      'feedSchedules': feedSchedules
+          .map(
+            (s) => {
+              'id': s.id,
+              'time': s.time,
+              'title': s.title,
+              'amount': s.amount,
+              'status': s.status,
+            },
+          )
+          .toList(),
     };
   }
 
@@ -133,6 +189,7 @@ class Pond {
     List<String>? feedingTimes,
     double? amount,
     String? hardwareId,
+    List<FeedSchedule>? feedSchedules,
   }) {
     return Pond(
       id: id ?? this.id,
@@ -151,6 +208,7 @@ class Pond {
       feedingTimes: feedingTimes ?? this.feedingTimes,
       amount: amount ?? this.amount,
       hardwareId: hardwareId ?? this.hardwareId,
+      feedSchedules: feedSchedules ?? this.feedSchedules,
     );
   }
 }

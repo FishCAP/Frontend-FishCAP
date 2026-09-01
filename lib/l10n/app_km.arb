@@ -104,5 +104,13 @@
   "automatedDispenser": "ម៉ាស៊ីនចៀសវាងស្វ័យប្រវត្តិ",
   "units": "ឯកត្តមាន",
   "today": "ថ្ងៃនេះ",
-  "selectDateRange": "ជ្រើសរើសចន្លោះកាលបរិច្ឆេទ"
+  "selectDateRange": "ជ្រើសរើសចន្លោះកាលបរិច្ឆេទ",
+  "tanks": "បន្ទប់",
+  "stock": "ស្តក",
+  "help": "ជំនួយ",
+  "helpSubtitle": "សំណួយគម្រោង FAQ",
+  "preferences": "ចំណងចាប់",
+  "appPreferences": "ការកំណត់កម្មវិធី & ជូនដំណឹង",
+  "notificationsEmpty": "មិនមានការជូនដំណឹង",
+  "readNotification": "សម្គាល់ថាអានហើយ"
 }

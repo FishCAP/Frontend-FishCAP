@@ -157,18 +157,57 @@ class ApiService {
   // --------------------------------------------------
   Future<Map<String, dynamic>> getUserProfile() async {
     final response = await _sendAuthenticated(
-      (headers) =>
-          http.get(Uri.parse('$baseUrl/users/me'), headers: headers).timeout(_timeout),
+      (headers) => http
+          .get(Uri.parse('$baseUrl/users/me'), headers: headers)
+          .timeout(_timeout),
     );
 
+    return _processResponse(response);
+  }
+
+  // --------------------------------------------------
+  // Notifications
+  // --------------------------------------------------
+  Future<Map<String, dynamic>> getNotifications() async {
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .get(Uri.parse('$baseUrl/notifications'), headers: headers)
+          .timeout(_timeout),
+    );
+    return _processResponse(response);
+  }
+
+  Future<Map<String, dynamic>> markNotificationRead(String id) async {
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .patch(
+            Uri.parse('$baseUrl/notifications/$id'),
+            headers: headers,
+            body: jsonEncode({'isRead': true}),
+          )
+          .timeout(_timeout),
+    );
+    return _processResponse(response);
+  }
+
+  Future<Map<String, dynamic>> markAllNotificationsRead() async {
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .patch(
+            Uri.parse('$baseUrl/notifications/mark-all-read'),
+            headers: headers,
+          )
+          .timeout(_timeout),
+    );
     return _processResponse(response);
   }
 
   /// Fetch all ponds for the current user.
   Future<Map<String, dynamic>> getPonds() async {
     final response = await _sendAuthenticated(
-      (headers) =>
-          http.get(Uri.parse('$baseUrl/ponds'), headers: headers).timeout(_timeout),
+      (headers) => http
+          .get(Uri.parse('$baseUrl/ponds'), headers: headers)
+          .timeout(_timeout),
     );
 
     return _processResponse(response);
@@ -269,7 +308,8 @@ class ApiService {
       final legacyPayload = <String, dynamic>{
         'name': pondData['name'] ?? pondData['pondName'],
         'species': pondData['species'] ?? pondData['fishType'],
-        'estimatedCount': pondData['estimatedCount'] ?? pondData['fishCount'] ?? 0,
+        'estimatedCount':
+            pondData['estimatedCount'] ?? pondData['fishCount'] ?? 0,
       };
       response = await _sendAuthenticated(
         (headers) => http
@@ -344,8 +384,9 @@ class ApiService {
   /// Fetch all sensor readings from the backend.
   Future<Map<String, dynamic>> getAllSensorData() async {
     final response = await _sendAuthenticated(
-      (headers) =>
-          http.get(Uri.parse('$baseUrl/sensors/data'), headers: headers).timeout(_timeout),
+      (headers) => http
+          .get(Uri.parse('$baseUrl/sensors/data'), headers: headers)
+          .timeout(_timeout),
     );
 
     return _processResponse(response);
@@ -390,7 +431,8 @@ class ApiService {
       final legacyPayload = <String, dynamic>{
         if (pondData.containsKey('name')) 'name': pondData['name'],
         if (pondData.containsKey('species')) 'species': pondData['species'],
-        if (pondData.containsKey('fishCount')) 'estimatedCount': pondData['fishCount'],
+        if (pondData.containsKey('fishCount'))
+          'estimatedCount': pondData['fishCount'],
         if (pondData.containsKey('estimatedCount'))
           'estimatedCount': pondData['estimatedCount'],
         if (pondData.containsKey('status')) 'status': pondData['status'],

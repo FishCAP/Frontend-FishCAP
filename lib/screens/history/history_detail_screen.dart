@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import '../../app/theme.dart';
 import '../../services/api_service.dart';
 import '../../utils/page_transitions.dart';
-import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import '../schedule/schedule_screen.dart';
-import 'history_screen.dart';
 
 class HistoryDetailScreen extends StatefulWidget {
   final String pondId;
@@ -50,12 +48,17 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    widget.pondName,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimary,
-                        ),
+                  Expanded(
+                    child: Text(
+                      widget.pondName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                          ),
+                    ),
                   ),
                 ],
               ),
@@ -128,20 +131,13 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                 color: AppTheme.primaryColor,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.history,
-                color: Colors.white,
-                size: 24,
-              ),
+              child: const Icon(Icons.history, color: Colors.white, size: 24),
             ),
             label: 'History',
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.person_outlined),
-            activeIcon: Icon(
-              Icons.person,
-              color: AppTheme.textSecondary,
-            ),
+            activeIcon: Icon(Icons.person, color: AppTheme.textSecondary),
             label: 'Profile',
           ),
         ],
@@ -290,9 +286,9 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
           Text(
             'Water Quality Status',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -384,7 +380,8 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                       const SizedBox(height: 4),
                       Text(
                         'Active Monitoring',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
@@ -403,9 +400,9 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               Text(
                 'Feed Schedule',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                ),
               ),
               Text(
                 'Today',
@@ -436,8 +433,6 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               final icon = status == 'Scheduled'
                   ? Icons.cached
                   : Icons.access_time;
-              final scheduleId = schedule['id']?.toString() ?? '';
-
               return Column(
                 children: [
                   _buildFeedScheduleCard(
@@ -447,9 +442,6 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                     status: status,
                     statusColor: statusColor,
                     icon: icon,
-                    onEdit: () => _editFeedSchedule(
-                        context, scheduleId, time, title),
-                    onDelete: () => _deleteFeedSchedule(context, scheduleId, time),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -484,11 +476,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
-            Icon(
-              icon,
-              size: 24,
-              color: AppTheme.textSecondary,
-            ),
+            Icon(icon, size: 24, color: AppTheme.textSecondary),
             const SizedBox(height: 12),
           ],
           Text(
@@ -503,10 +491,10 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
           Text(
             value,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                  fontSize: 20,
-                ),
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimary,
+              fontSize: 20,
+            ),
           ),
         ],
       ),
@@ -552,10 +540,10 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               Text(
                 value,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                      fontSize: 28,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimary,
+                  fontSize: 28,
+                ),
               ),
               if (unit != null) ...[
                 const SizedBox(width: 4),
@@ -576,11 +564,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              Icon(
-                Icons.circle,
-                size: 8,
-                color: statusColor,
-              ),
+              Icon(Icons.circle, size: 8, color: statusColor),
               const SizedBox(width: 4),
               Text(
                 status,
@@ -604,8 +588,6 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
     required String status,
     required Color statusColor,
     required IconData icon,
-    required VoidCallback onEdit,
-    required VoidCallback onDelete,
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -629,11 +611,7 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
               color: AppTheme.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              icon,
-              color: AppTheme.primaryColor,
-              size: 24,
-            ),
+            child: Icon(icon, color: AppTheme.primaryColor, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -651,148 +629,24 @@ class _HistoryDetailScreenState extends State<HistoryDetailScreen> {
                 const SizedBox(height: 4),
                 Text(
                   title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
                 ),
               ],
             ),
           ),
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: statusColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: onEdit,
-                icon: Icon(
-                  Icons.edit_outlined,
-                  color: AppTheme.primaryColor,
-                  size: 20,
-                ),
-              ),
-              IconButton(
-                onPressed: onDelete,
-                icon: Icon(
-                  Icons.delete_outlined,
-                  color: AppTheme.errorColor,
-                  size: 20,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Edit feed schedule
-  void _editFeedSchedule(
-      BuildContext context, String scheduleId, String time, String title) {
-    final newTimeController = TextEditingController(text: time);
-    final newTitleController = TextEditingController(text: title);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Feed Schedule'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: newTimeController,
-              decoration: const InputDecoration(
-                labelText: 'Time',
-                hintText: 'e.g., 8:00 AM',
-              ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(20),
             ),
-            TextField(
-              controller: newTitleController,
-              decoration: const InputDecoration(
-                labelText: 'Feed Type',
-                hintText: 'e.g., Morning Feed',
+            child: Text(
+              status,
+              style: TextStyle(
+                fontSize: 12,
+                color: statusColor,
+                fontWeight: FontWeight.w600,
               ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (newTimeController.text.isNotEmpty &&
-                  newTitleController.text.isNotEmpty) {
-                Navigator.pop(context);
-                // TODO: Call API to update schedule
-                // final result = await _api.updateFeedSchedule(scheduleId, ...);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                        'Schedule updated: ${newTimeController.text} - ${newTitleController.text}'),
-                    backgroundColor: AppTheme.successColor,
-                  ),
-                );
-                // Refresh detail after update
-                setState(() {
-                  _detailFuture = _api.getPondById(widget.pondId);
-                });
-              }
-            },
-            child: const Text('Update'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Delete feed schedule
-  void _deleteFeedSchedule(
-      BuildContext context, String scheduleId, String time) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Feed Schedule'),
-        content: Text('Are you sure you want to delete the schedule for $time?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              // TODO: Call API to delete schedule
-              // final result = await _api.deleteFeedSchedule(scheduleId);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Schedule for $time deleted'),
-                  backgroundColor: AppTheme.errorColor,
-                ),
-              );
-              // Refresh detail after deletion
-              setState(() {
-                _detailFuture = _api.getPondById(widget.pondId);
-              });
-            },
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: AppTheme.errorColor),
             ),
           ),
         ],

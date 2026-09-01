@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:fishcap_app/l10n/app_localizations.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import '../../app/theme.dart';
 import '../../models/pond.dart';
@@ -75,6 +74,245 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  // Converts a "8:00 AM"/"8:00 PM"/"08:30" string into 24h "HH:mm" so it can
+  // be persisted through the pond's feedingSchedules payload (the backend's
+  // feed_time column is a Postgres TIME, which expects 24h values).
+  String _to24Hour(String time) {
+    final match = RegExp(
+      r'^(\d{1,2}):(\d{2})\s*([AP]M)?$',
+      caseSensitive: false,
+    ).firstMatch(time.trim());
+
+    if (match == null) return time.trim();
+
+    var hour = int.parse(match.group(1)!);
+    final minute = match.group(2)!;
+    final meridiem = match.group(3)?.toUpperCase();
+
+    if (meridiem != null) {
+      if (meridiem == 'PM' && hour != 12) hour += 12;
+      if (meridiem == 'AM' && hour == 12) hour = 0;
+    } else if (hour > 23) {
+      return time.trim();
+    }
+
+    return '${hour.toString().padLeft(2, '0')}:$minute';
+  }
+
+  /// Parses a 12h/24h time string into a [TimeOfDay].
+  TimeOfDay _parseScheduleTime(String time) {
+    final parts = _to24Hour(time).split(':');
+    if (parts.length == 2) {
+      final hour = int.tryParse(parts[0]);
+      final minute = int.tryParse(parts[1]);
+      if (hour != null && minute != null) {
+        return TimeOfDay(hour: hour, minute: minute);
+      }
+    }
+    return TimeOfDay.now();
+  }
+
+  /// Builds the `{time, amount}` list the pond update endpoint expects from
+  /// the raw feedSchedules maps returned by the detail API.
+  List<Map<String, dynamic>> _scheduleUpdatePayload(List<dynamic> schedules) {
+    return schedules.whereType<Map>().map((s) {
+      final amount = s['amount'];
+      return <String, dynamic>{
+        'time': _to24Hour(s['time']?.toString() ?? ''),
+        'amount': amount is num ? amount.toDouble() : 0,
+      };
+    }).toList();
+  }
+
+  /// Persists a modified schedule list (owner-scoped pond update) and
+  /// refreshes the dashboard.
+  Future<void> _saveScheduleList(
+    List<dynamic> schedules, {
+    String successMessage = 'Feed schedule updated',
+  }) async {
+    if (!mounted) return;
+
+    final result = await _api.updatePond(widget.pondId, {
+      'feedingSchedules': _scheduleUpdatePayload(schedules),
+    });
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(successMessage),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+      await _loadDetail();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result['message']?.toString() ?? 'Failed to update feed schedule',
+          ),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
+  }
+
+  /// Edits a single schedule (time + amount) through a dialog, then saves.
+  Future<void> _editFeedSchedule(
+    BuildContext context,
+    List<dynamic> schedules,
+    int index,
+  ) async {
+    if (!mounted) return;
+
+    final raw = schedules[index];
+    final original = raw is Map
+        ? Map<String, dynamic>.from(raw)
+        : <String, dynamic>{};
+    final initialTime = _parseScheduleTime(original['time']?.toString() ?? '');
+    final timeController = TextEditingController(
+      text: initialTime.format(context),
+    );
+    final amountController = TextEditingController(
+      text: original['amount'] != null ? original['amount'].toString() : '',
+    );
+    TimeOfDay pickedTime = initialTime;
+
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit Feed Schedule'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                readOnly: true,
+                controller: timeController,
+                decoration: InputDecoration(
+                  labelText: 'Feeding Time',
+                  prefixIcon: const Icon(Icons.access_time),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.schedule),
+                    onPressed: () async {
+                      final picked = await showTimePicker(
+                        context: dialogContext,
+                        initialTime: pickedTime,
+                      );
+                      if (picked != null) {
+                        setDialogState(() {
+                          pickedTime = picked;
+                          timeController.text = picked.format(dialogContext);
+                        });
+                      }
+                    },
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Feed Amount (kg)',
+                  hintText: 'e.g., 1.5',
+                  prefixIcon: const Icon(Icons.scale_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final amount = double.tryParse(amountController.text.trim());
+                if (amount == null || amount <= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please enter a valid amount'),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('Update'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final newAmountText = amountController.text.trim();
+    amountController.dispose();
+    timeController.dispose();
+
+    if (save != true || !mounted) return;
+
+    if (index < 0 || index >= schedules.length) return;
+
+    final updated = Map<String, dynamic>.from(original);
+    updated['time'] =
+        '${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}';
+    updated['amount'] = double.tryParse(newAmountText) ?? 0;
+    schedules[index] = updated;
+
+    await _saveScheduleList(schedules);
+  }
+
+  /// Confirms and removes one schedule, then saves the remaining list.
+  Future<void> _deleteFeedSchedule(
+    BuildContext context,
+    List<dynamic> schedules,
+    int index,
+  ) async {
+    if (!mounted) return;
+
+    final raw = schedules[index];
+    final timeLabel = raw is Map ? (raw['time']?.toString() ?? '') : '';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Feed Schedule'),
+        content: Text(
+          'Are you sure you want to delete the $timeLabel feeding schedule?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    if (index >= 0 && index < schedules.length) {
+      schedules.removeAt(index);
+    }
+
+    await _saveScheduleList(schedules);
   }
 
   @override
@@ -179,17 +417,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   /// Resolves the main scrollable body from the cached pond data.
+  /// Always wraps the result in a [SingleChildScrollView] so that
+  /// [RefreshIndicator] always has a scrollable child.
   Widget _buildBody() {
     if (_isLoading && _pond == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const SingleChildScrollView(
+        child: Center(child: CircularProgressIndicator()),
+      );
     }
     if (_error != null && _pond == null) {
-      return Center(child: Text(_error!));
+      return SingleChildScrollView(child: Center(child: Text(_error!)));
     }
     if (_pond != null) {
       return _buildDashboardContent(_pond!);
     }
-    return const Center(child: Text('Failed to load details'));
+    return const SingleChildScrollView(
+      child: Center(child: Text('Failed to load details')),
+    );
   }
 
   /// Builds the prominent Active / Done toggle displayed at the top of the
@@ -324,84 +568,116 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Future<void> _showAddFeedScheduleDialog(
       BuildContext context,
       String pondId,
+      List<dynamic> feedSchedules,
     ) async {
+      final amountController = TextEditingController();
       final timeController = TextEditingController();
-      final titleController = TextEditingController();
+      TimeOfDay? selectedTime;
 
       final shouldAdd = await showDialog<bool>(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('Add Feed Schedule'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: timeController,
-                decoration: const InputDecoration(
-                  labelText: 'Time',
-                  hintText: 'e.g., 8:00 AM',
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Add Feed Schedule'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  readOnly: true,
+                  controller: timeController,
+                  decoration: InputDecoration(
+                    labelText: 'Feeding Time',
+                    hintText: 'Select time',
+                    prefixIcon: const Icon(Icons.access_time),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.schedule),
+                      onPressed: () async {
+                        final picked = await showTimePicker(
+                          context: dialogContext,
+                          initialTime: selectedTime ?? TimeOfDay.now(),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            selectedTime = picked;
+                            timeController.text = picked.format(dialogContext);
+                          });
+                        }
+                      },
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                 ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Feed Amount (kg)',
+                    hintText: 'e.g., 1.5',
+                    prefixIcon: const Icon(Icons.scale_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Cancel'),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Feed Type',
-                  hintText: 'e.g., Morning Feed',
-                ),
+              TextButton(
+                onPressed: () {
+                  final amount = double.tryParse(amountController.text.trim());
+                  if (selectedTime == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please select a time')),
+                    );
+                    return;
+                  }
+                  if (amount == null || amount <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a valid amount'),
+                      ),
+                    );
+                    return;
+                  }
+                  Navigator.pop(dialogContext, true);
+                },
+                child: const Text('Add'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Add'),
-            ),
-          ],
         ),
       );
 
-      if (shouldAdd != true) return;
+      // Read the picked time (already 24h "HH:mm") and the amount before
+      // disposing the controllers.
+      final time = selectedTime == null
+          ? ''
+          : '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}';
+      final amountText = amountController.text.trim();
 
-      final time = timeController.text.trim();
-      final title = titleController.text.trim();
+      amountController.dispose();
+      timeController.dispose();
 
-      if (time.isEmpty || title.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Please fill all fields')));
-        return;
-      }
+      if (shouldAdd != true || !mounted) return;
 
-      final result = await _api.addFeedSchedule(
-        pondId: pondId,
-        time: time,
-        title: title,
+      feedSchedules.add({
+        'time': time,
+        'amount': double.tryParse(amountText) ?? 0,
+      });
+
+      await _saveScheduleList(
+        feedSchedules,
+        successMessage: 'Feed schedule added',
       );
-
-      if (!mounted) return;
-
-      if (result['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Feed schedule added'),
-            backgroundColor: AppTheme.successColor,
-          ),
-        );
-        // Refresh the detail data
-        await _loadDetail();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Failed to add schedule'),
-            backgroundColor: AppTheme.errorColor,
-          ),
-        );
-      }
     }
 
     return SingleChildScrollView(
@@ -657,7 +933,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Center(child: Text('No feed schedules')),
             )
           else
-            ...feedSchedules.map((schedule) {
+            ...feedSchedules.asMap().entries.map((entry) {
+              final index = entry.key;
+              final schedule = entry.value;
               final time = schedule['time']?.toString() ?? '';
               final title = schedule['title']?.toString() ?? '';
               final status = schedule['status']?.toString() ?? 'Pending';
@@ -677,6 +955,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   status: status,
                   statusColor: statusColor,
                   icon: icon,
+                  onEdit: () =>
+                      _editFeedSchedule(context, feedSchedules, index),
+                  onDelete: () =>
+                      _deleteFeedSchedule(context, feedSchedules, index),
                 ),
               );
             }),
@@ -686,7 +968,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () => _showAddFeedScheduleDialog(context, pondId),
+              onPressed: () =>
+                  _showAddFeedScheduleDialog(context, pondId, feedSchedules),
               icon: const Icon(Icons.add_alarm, color: AppTheme.primaryColor),
               label: const Text(
                 'Add New Time',
@@ -707,7 +990,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 100),
         ],
       ),
     );
@@ -719,8 +1001,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   /// serializes DECIMAL columns as strings, so accept num or String input.
   String _formatWeight(dynamic grams) {
     if (grams == null) return '--';
-    final double? value =
-        grams is num ? grams.toDouble() : double.tryParse(grams.toString());
+    final double? value = grams is num
+        ? grams.toDouble()
+        : double.tryParse(grams.toString());
     if (value == null) return '--';
     if (value >= 1000) return '${(value / 1000).toStringAsFixed(2)} kg';
     return '${value.toStringAsFixed(1)} g';
@@ -756,8 +1039,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
       ageText = 'Updated $ago · ${DateFormat('HH:mm').format(updatedAt)}';
     }
-    final bool isLive = updatedAt != null &&
-        DateTime.now().difference(updatedAt).inMinutes < 3;
+    final bool isLive =
+        updatedAt != null && DateTime.now().difference(updatedAt).inMinutes < 3;
 
     final String statusLabel;
     final Color statusColor;
@@ -781,14 +1064,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text(
               'Feed Stock (Sensor)',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                  ),
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
             ),
             if (isLive)
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: AppTheme.successColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
@@ -847,11 +1132,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(
-                      Icons.scale,
-                      size: 28,
-                      color: statusColor,
-                    ),
+                    child: Icon(Icons.scale, size: 28, color: statusColor),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -1127,6 +1408,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required String status,
     required Color statusColor,
     required IconData icon,
+    required VoidCallback onEdit,
+    required VoidCallback onDelete,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1176,20 +1459,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 12,
-                color: statusColor,
-                fontWeight: FontWeight.w500,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: statusColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 2),
+              IconButton(
+                onPressed: onEdit,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 34,
+                  height: 34,
+                ),
+                tooltip: 'Edit schedule',
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              IconButton(
+                onPressed: onDelete,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 34,
+                  height: 34,
+                ),
+                tooltip: 'Delete schedule',
+                icon: const Icon(
+                  Icons.delete_outlined,
+                  size: 18,
+                  color: AppTheme.errorColor,
+                ),
+              ),
+            ],
           ),
         ],
       ),

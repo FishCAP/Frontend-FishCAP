@@ -18,7 +18,8 @@ class AppLocalizationsKm extends AppLocalizations {
   String get welcomeBack => 'សូមស្វាគមន៍ត្រឡប់មកវិញ';
 
   @override
-  String get loginSubtitle => 'សូមបញ្ចូលព័ត៌មានអត្តសញ្ញាណរបស់អ្នកដើម្បីបន្តការតាមដាន';
+  String get loginSubtitle =>
+      'សូមបញ្ចូលព័ត៌មានអត្តសញ្ញាណរបស់អ្នកដើម្បីបន្តការតាមដាន';
 
   @override
   String get username => 'ឈ្មោះអ្នកប្រើប្រាស់';
@@ -42,7 +43,8 @@ class AppLocalizationsKm extends AppLocalizations {
   String get createAccount => 'បង្កើតគណនី';
 
   @override
-  String get createAccountSubtitle => 'ចាប់ផ្តើមតាមដានបរិស្ថានសមុទ្ររបស់អ្នកថ្ងៃនេះ';
+  String get createAccountSubtitle =>
+      'ចាប់ផ្តើមតាមដានបរិស្ថានសមុទ្ររបស់អ្នកថ្ងៃនេះ';
 
   @override
   String get fullName => 'ឈ្មោះពេញ';
@@ -279,10 +281,12 @@ class AppLocalizationsKm extends AppLocalizations {
   String get precisionFeedingTip => 'គន្លឹះព្រោះត្រីដោយភាពជាក់លាក់';
 
   @override
-  String get feedingTipDescription => 'ការព្រោះត្រីល្អបំផុតកើតឡើងនៅពេលកម្រិតអុកស៊ីសែនទឹកលើសពី 5.0 mg/L សេនស័រនឹងផ្ទៀងផ្ទាត់លក្ខខណ្ឌដោយស្វ័យប្រវត្តិមុនពេលចៀសវាង។';
+  String get feedingTipDescription =>
+      'ការព្រោះត្រីល្អបំផុតកើតឡើងនៅពេលកម្រិតអុកស៊ីសែនទឹកលើសពី 5.0 mg/L សេនស័រនឹងផ្ទៀងផ្ទាត់លក្ខខណ្ឌដោយស្វ័យប្រវត្តិមុនពេលចៀសវាង។';
 
   @override
-  String get configureAutomatedFeeding => 'កំណត់រចនាសម្ព័ន្ធការព្រោះត្រីដោយស្វ័យប្រវត្តិ';
+  String get configureAutomatedFeeding =>
+      'កំណត់រចនាសម្ព័ន្ធការព្រោះត្រីដោយស្វ័យប្រវត្តិ';
 
   @override
   String get operationalMode => 'របៀបប្រតិបត្តិ';
@@ -322,4 +326,28 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get selectDateRange => 'ជ្រើសរើសចន្លោះកាលបរិច្ឆេទ';
+
+  @override
+  String get tanks => 'បន្ទប់';
+
+  @override
+  String get stock => 'ស្តក';
+
+  @override
+  String get help => 'ជំនួយ';
+
+  @override
+  String get helpSubtitle => 'សំណួយគម្រោង FAQ';
+
+  @override
+  String get preferences => 'ចំណងចាប់';
+
+  @override
+  String get appPreferences => 'ការកំណត់កម្មវិធី & ជូនដំណឹង';
+
+  @override
+  String get notificationsEmpty => 'មិនមានការជូនដំណឹង';
+
+  @override
+  String get readNotification => 'សម្គាល់ថាអានហើយ';
 }

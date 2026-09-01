@@ -18,7 +18,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get welcomeBack => 'Welcome Back';
 
   @override
-  String get loginSubtitle => 'Please enter your credentials to continue monitoring';
+  String get loginSubtitle =>
+      'Please enter your credentials to continue monitoring';
 
   @override
   String get username => 'Username';
@@ -42,7 +43,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createAccount => 'Create Account';
 
   @override
-  String get createAccountSubtitle => 'Start monitoring your marine environment today';
+  String get createAccountSubtitle =>
+      'Start monitoring your marine environment today';
 
   @override
   String get fullName => 'Full Name';
@@ -279,7 +281,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get precisionFeedingTip => 'Precision Feeding Tip';
 
   @override
-  String get feedingTipDescription => 'Optimal feeding occurs when water oxygen levels are above 5.0 mg/L. Sensors will auto-verify conditions before dispensing.';
+  String get feedingTipDescription =>
+      'Optimal feeding occurs when water oxygen levels are above 5.0 mg/L. Sensors will auto-verify conditions before dispensing.';
 
   @override
   String get configureAutomatedFeeding => 'Configure automated feeding';
@@ -322,4 +325,28 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get selectDateRange => 'Select date range';
+
+  @override
+  String get tanks => 'Tanks';
+
+  @override
+  String get stock => 'Stock';
+
+  @override
+  String get help => 'Help';
+
+  @override
+  String get helpSubtitle => 'FAQs & Support center';
+
+  @override
+  String get preferences => 'Preferences';
+
+  @override
+  String get appPreferences => 'App & notification preferences';
+
+  @override
+  String get notificationsEmpty => 'You have no notifications';
+
+  @override
+  String get readNotification => 'Mark as read';
 }

@@ -3,8 +3,6 @@ import 'package:fishcap_app/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../providers/language_provider.dart';
-import '../../utils/page_transitions.dart';
-import '../notifications/notifications_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
