@@ -3,6 +3,7 @@ import 'package:fishcap_app/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../providers/language_provider.dart';
+import '../../providers/theme_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -14,6 +15,13 @@ class SettingsScreen extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(l10n.settingsTitle),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -35,13 +43,16 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => _showLanguageDialog(context),
             ),
 
-            SettingsItem(
-              title: l10n.darkMode,
-              icon: Icons.dark_mode,
-              color: AppTheme.secondaryColor,
-              value: 'Off',
-              onTap: () => _showSnackBar(context, 'Dark mode coming soon!'),
-            ),
+            // Dark mode toggle wired to ThemeProvider
+            Consumer<ThemeProvider>(builder: (context, tp, child) {
+              return SettingsItem(
+                title: l10n.darkMode,
+                icon: Icons.dark_mode,
+                color: AppTheme.secondaryColor,
+                value: tp.isDark ? 'On' : 'Off',
+                onTap: () => tp.toggle(!tp.isDark),
+              );
+            }),
 
             SettingsItem(
               title: l10n.notificationsSettings,

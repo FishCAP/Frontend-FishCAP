@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fishcap_app/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../providers/user_provider.dart';
@@ -61,17 +62,21 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       if (!mounted) return;
 
       if (otpSuccess) {
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account verified successfully!'),
+          SnackBar(
+            content: Text(l10n.accountVerified),
             backgroundColor: AppTheme.successColor,
           ),
         );
         Navigator.pushReplacementNamed(context, '/schedule');
       } else {
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(userProvider.error ?? 'OTP verification failed'),
+            content: Text(userProvider.error ?? l10n.otpVerificationFailed),
             backgroundColor: Colors.red,
           ),
         );
@@ -95,9 +100,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       if (!mounted) return;
 
       if (result['success'] == true) {
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('OTP resent successfully'),
+          SnackBar(
+            content: Text(l10n.otpResent),
             backgroundColor: AppTheme.successColor,
           ),
         );
@@ -106,9 +113,11 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
         });
         _startCountdown();
       } else {
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Failed to resend OTP'),
+            content: Text(result['message'] ?? l10n.failedToResendOtp),
             backgroundColor: Colors.red,
           ),
         );
@@ -131,8 +140,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Verify Email')),
+      appBar: AppBar(title: Text(l10n.verifyEmail)),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -178,9 +188,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         const SizedBox(height: 24),
 
                         // Title
-                        const Text(
-                          'Verify Your Email',
-                          style: TextStyle(
+                        Text(
+                          l10n.verifyYourEmail,
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.primaryColor,
@@ -191,7 +201,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         const SizedBox(height: 12),
 
                         Text(
-                          'We sent a verification code to\n${widget.email}',
+                          '${l10n.otpSentTo}\n${widget.email}',
                           style: const TextStyle(
                             fontSize: 14,
                             color: AppTheme.textSecondary,
@@ -207,19 +217,19 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.center,
                           maxLength: 6,
-                          decoration: const InputDecoration(
-                            labelText: 'Enter OTP Code',
-                            prefixIcon: Icon(Icons.pin_outlined),
+                          decoration: InputDecoration(
+                            labelText: l10n.enterOtpCode,
+                            prefixIcon: const Icon(Icons.pin_outlined),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter the OTP code';
+                              return l10n.pleaseEnterOtpCode;
                             }
                             if (value.length != 6) {
-                              return 'OTP must be 6 digits';
+                              return l10n.otpMustBe6Digits;
                             }
                             if (!RegExp(r'^\d{6}$').hasMatch(value)) {
-                              return 'OTP must contain only digits';
+                              return l10n.otpMustBeDigitsOnly;
                             }
                             return null;
                           },
@@ -241,7 +251,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : const Text('Verify Email'),
+                                : Text(l10n.verifyEmail),
                           ),
                         ),
 
@@ -255,10 +265,10 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                 : _handleResendOtp,
                             child: Text(
                               _countdown > 0
-                                  ? 'Resend OTP in $_countdown s'
+                                  ? l10n.resendOtpIn(_countdown)
                                   : _isResending
-                                  ? 'Resending...'
-                                  : 'Resend OTP',
+                                  ? l10n.resending
+                                  : l10n.resendOtp,
                             ),
                           ),
                         ),
@@ -269,7 +279,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('Already verified?'),
+                            Text(l10n.alreadyVerified),
                             TextButton(
                               onPressed: () {
                                 Navigator.pushReplacementNamed(
@@ -277,7 +287,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                                   '/login',
                                 );
                               },
-                              child: const Text('Login'),
+                              child: Text(l10n.login),
                             ),
                           ],
                         ),

@@ -5,6 +5,7 @@ import '../../app/theme.dart';
 import '../../utils/page_transitions.dart';
 import '../../models/pond.dart';
 import '../../services/api_service.dart';
+import '../../services/notification_badge.dart';
 import '../notifications/notifications_screen.dart';
 import '../pond/create_pond_screen.dart';
 import '../history/history_screen.dart';
@@ -22,15 +23,29 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   List<Pond> _ponds = [];
   bool _isLoading = true;
   String? _errorMessage;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _loadPonds();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadPonds();
+      }
+    });
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.trim().toLowerCase();
+      });
+    });
   }
 
   Future<void> _loadPonds() async {
     if (!mounted) return;
+
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
 
     setState(() {
       _isLoading = true;
@@ -47,7 +62,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       if (result['success'] != true) {
         setState(() {
           _errorMessage =
-              result['message']?.toString() ?? 'Failed to load ponds';
+              result['message']?.toString() ?? l10n.failedToLoadPonds;
           _isLoading = false;
         });
         return;
@@ -140,25 +155,37 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     }).toList();
   }
 
+  List<Pond> get _visiblePonds {
+    if (_searchQuery.isEmpty) return _activePonds;
+    return _activePonds.where((p) {
+      final name = p.name.toLowerCase();
+      final species = p.species.toLowerCase();
+      return name.contains(_searchQuery) || species.contains(_searchQuery);
+    }).toList();
+  }
+
   Future<void> _deletePond(Pond pond) async {
     if (!mounted) return;
+
+    final l10n = AppLocalizations.of(context);
+    if (l10n == null) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Pond'),
+        title: Text(l10n.deletePond),
         content: Text(
           'Are you sure you want to delete "${pond.name}"? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppTheme.errorColor),
-            child: const Text('Delete'),
+            child: Text(l10n.delete),
           ),
         ],
       ),
@@ -190,7 +217,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result['message'] ?? 'Failed to delete pond'),
+          content: Text(result['message'] ?? l10n.failedToDeletePond),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -270,26 +297,60 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                     ),
                   ),
 
-                  // Notification Bell
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppTheme.cardColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: IconButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          PageTransitions.slideFromRight(
-                            const NotificationsScreen(),
+                  // Notification Bell with unread badge
+                  ValueListenableBuilder<int>(
+                    valueListenable: unreadNotificationCount,
+                    builder: (context, unread, _) => Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          IconButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                PageTransitions.slideFromRight(
+                                  const NotificationsScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.notifications_outlined,
+                              color: AppTheme.textPrimary,
+                            ),
                           ),
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.notifications_outlined,
-                        color: AppTheme.textPrimary,
+                          if (unread > 0)
+                            Positioned(
+                              top: 2,
+                              right: 2,
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.errorColor,
+                                  shape: BoxShape.circle,
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 18,
+                                  minHeight: 18,
+                                ),
+                                child: Text(
+                                  unread > 99 ? '99+' : '$unread',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
@@ -304,49 +365,46 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Search Bar
+                    // Search Bar (filters ponds by name or species)
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppTheme.cardColor,
+                        color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 10,
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: Row(
                         children: [
-                          const Icon(
-                            Icons.search,
-                            color: AppTheme.textSecondary,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 12),
+                          Icon(Icons.search, color: Theme.of(context).textTheme.bodyMedium?.color),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: TextField(
+                              controller: _searchController,
                               decoration: InputDecoration(
                                 hintText: 'Search ponds, species, or ID...',
-                                hintStyle: TextStyle(
-                                  fontSize: 16,
-                                  color: AppTheme.textSecondary,
-                                ),
+                                hintStyle: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
                                 border: InputBorder.none,
                                 isDense: true,
                                 contentPadding: EdgeInsets.zero,
                               ),
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: AppTheme.textPrimary,
-                              ),
+                              style: TextStyle(fontSize: 16, color: Theme.of(context).textTheme.bodyLarge?.color),
+                              onSubmitted: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
                             ),
                           ),
+                          if (_searchQuery.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            ),
                         ],
                       ),
                     ),
@@ -359,7 +417,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         final cards = [
                           _buildSummaryCard(
                             context,
-                            label: 'Active Ponds',
+                            label: l10n.activePonds,
                             value: '${_activePonds.length}',
                             detail: 'All running',
                             icon: Icons.check_circle,
@@ -455,7 +513,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           ),
                         ),
                       )
-                    // Empty State
+                    // Empty State: no ponds at all
                     else if (_activePonds.isEmpty)
                       Center(
                         child: Padding(
@@ -491,14 +549,20 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           ),
                         ),
                       )
-                    // Ponds List
+                    // No matches for current filter
+                    else if (_visiblePonds.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Center(child: Text('No ponds match your search')),
+                      )
+                    // Ponds List (filtered)
                     else
-                      ...List.generate(_activePonds.length, (index) {
-                        final pond = _activePonds[index];
+                      ...List.generate(_visiblePonds.length, (index) {
+                        final pond = _visiblePonds[index];
                         return Column(
                           children: [
                             _buildSiteCard(context, pond),
-                            if (index < _activePonds.length - 1)
+                            if (index < _visiblePonds.length - 1)
                               const SizedBox(height: 16),
                           ],
                         );
@@ -626,17 +690,17 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                 size: 24,
               ),
             ),
-            label: 'Schedule',
+            label: l10n.schedule,
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.history_outlined),
             activeIcon: Icon(Icons.history, color: AppTheme.textSecondary),
-            label: 'History',
+            label: l10n.history,
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.person_outlined),
             activeIcon: Icon(Icons.person, color: AppTheme.textSecondary),
-            label: 'Profile',
+            label: l10n.profile,
           ),
         ],
       ),
@@ -650,6 +714,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   }
 
   Widget _buildSiteCard(BuildContext context, Pond pond) {
+    final l10n = AppLocalizations.of(context)!;
     // Safely parse status color, fallback to primary if null or invalid
     Color statusColor;
     try {
@@ -775,8 +840,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'View Dashboard',
+                    child: Text(
+                      l10n.viewDashboard,
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,

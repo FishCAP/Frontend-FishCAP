@@ -13,21 +13,37 @@ class ApiService {
 
   ApiService._internal();
 
-  String? token;
+  String? _token;
+  String? get token => _token;
   String? userId;
+  int _sessionRevision = 0;
 
   /// The API host differs per platform:
   /// - Android emulator reaches the host machine via 10.0.2.2
   /// - iOS simulator / desktop / web can use localhost directly
+  /// - Real devices need a LAN IP or a runtime override
   ///
   /// Uses `kIsWeb` + `defaultTargetPlatform` instead of `dart:io Platform`,
   /// which is not available on the web (would throw `Unsupported operation:
   /// _Namespace` at startup).
-  static String get baseUrl {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://192.168.43.246:3001/api';
+  static String resolveBackendBaseUrl({
+    String? override,
+    TargetPlatform? platform,
+  }) {
+    final runtimeOverride = override?.trim();
+    if (runtimeOverride != null && runtimeOverride.isNotEmpty) {
+      return runtimeOverride.replaceAll(RegExp(r'/+$'), '');
     }
-    return 'http://localhost:3001/api';
+
+    final resolvedPlatform = platform ?? defaultTargetPlatform;
+    if (!kIsWeb && resolvedPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:3001';
+    }
+    return 'http://localhost:3001';
+  }
+
+  static String get baseUrl {
+    return '${resolveBackendBaseUrl()}/api';
   }
 
   static const Duration _timeout = Duration(seconds: 15);
@@ -39,20 +55,57 @@ class ApiService {
   // Token management
   // --------------------------------------------------
   Future<void> loadToken() async {
+    final revision = _sessionRevision;
     final prefs = await SharedPreferences.getInstance();
-    token = prefs.getString(_tokenKey);
+    // A pending startup read must not overwrite a newer login or logout.
+    if (revision != _sessionRevision) return;
+    final savedToken = prefs.getString(_tokenKey);
+    _token = savedToken != null && savedToken.trim().isNotEmpty
+        ? savedToken
+        : null;
   }
 
   Future<void> saveToken(String newToken) async {
-    token = newToken;
+    if (newToken.trim().isEmpty) {
+      throw ArgumentError('A nonempty backend token is required');
+    }
+    final revision = ++_sessionRevision;
+    _token = newToken;
     final prefs = await SharedPreferences.getInstance();
+    if (revision != _sessionRevision) return;
     await prefs.setString(_tokenKey, newToken);
   }
 
   Future<void> clearToken() async {
-    token = null;
+    final revision = ++_sessionRevision;
+    _token = null;
+    userId = null;
     final prefs = await SharedPreferences.getInstance();
+    if (revision != _sessionRevision) return;
     await prefs.remove(_tokenKey);
+  }
+
+  /// Login and OTP return { success: true, data: { id, email, token, ... } }.
+  /// Preserve the backend token verbatim; never derive it from a resource ID.
+  Future<Map<String, dynamic>> _storeSession(
+    Map<String, dynamic> result,
+  ) async {
+    if (result['success'] != true) return result;
+    final data = result['data'];
+    if (data is! Map ||
+        data['token'] is! String ||
+        (data['token'] as String).trim().isEmpty ||
+        data['id'] is! String ||
+        (data['id'] as String).isEmpty) {
+      await clearToken();
+      return {
+        'success': false,
+        'message': 'Invalid sign-in response. Please sign in again.',
+      };
+    }
+    await saveToken(data['token'] as String);
+    userId = data['id'] as String;
+    return result;
   }
 
   // --------------------------------------------------
@@ -67,25 +120,7 @@ class ApiService {
         )
         .timeout(_timeout);
 
-    final result = _processResponse(response);
-
-    // Persist the JWT token if the backend returned one so the session
-    // survives hot-reloads / app restarts.
-    if (result['success'] == true && result['data'] is Map) {
-      final data = result['data'] as Map;
-      // Extract userId – adjust based on your actual response structure
-      if (data.containsKey('user') && data['user'] is Map) {
-        final user = data['user'] as Map;
-        userId = user['id'] as String?;
-      } else if (data.containsKey('id')) {
-        userId = data['id'] as String?;
-      }
-      if (data.containsKey('token')) {
-        await saveToken(data['token'] as String);
-      }
-    }
-
-    return result;
+    return _storeSession(_processResponse(response));
   }
 
   Future<Map<String, dynamic>> requestOtp(String email) async {
@@ -130,26 +165,7 @@ class ApiService {
         )
         .timeout(_timeout);
 
-    final result = _processResponse(response);
-
-    // If token is returned, store it
-    if (result['success'] == true && result['data'] is Map) {
-      final data = result['data'] as Map;
-      if (data.containsKey('token')) {
-        await saveToken(data['token'] as String);
-      }
-      // If user data is inside a nested 'user' key, we don't need to store token separately
-      if (data.containsKey('user') &&
-          data['user'] is Map &&
-          data['user'].containsKey('token')) {
-        final userData = data['user'] as Map;
-        if (userData.containsKey('token')) {
-          await saveToken(userData['token'] as String);
-        }
-      }
-    }
-
-    return result;
+    return _storeSession(_processResponse(response));
   }
 
   // --------------------------------------------------
@@ -202,6 +218,29 @@ class ApiService {
     return _processResponse(response);
   }
 
+  /// Persist an alert on the backend so it appears on the Notifications
+  /// page for the signed-in user (the endpoint binds the row to the JWT
+  /// user — the client only supplies title/message/isRead).
+  Future<Map<String, dynamic>> createNotification({
+    required String title,
+    String? message,
+  }) async {
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .post(
+            Uri.parse('$baseUrl/notifications'),
+            headers: headers,
+            body: jsonEncode({
+              'title': title,
+              'message': message,
+              'isRead': false,
+            }),
+          )
+          .timeout(_timeout),
+    );
+    return _processResponse(response);
+  }
+
   /// Fetch all ponds for the current user.
   Future<Map<String, dynamic>> getPonds() async {
     final response = await _sendAuthenticated(
@@ -246,22 +285,23 @@ class ApiService {
     Uint8List bytes, {
     String filename = 'profile.jpg',
   }) async {
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/users/me/profile-image'),
+    // The backend does not expose a dedicated profile-image upload endpoint
+    // (POST /users/me/profile-image) which caused 404 errors in the browser.
+    // As a safe fallback we PATCH /users/me with a base64 payload so the
+    // request succeeds without hitting the missing endpoint. The server may
+    // ignore unknown fields, but this prevents noisy 404s in the browser.
+    final base64 = base64Encode(bytes);
+    final body = {'profileImageBase64': base64, 'filename': filename};
+
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .patch(
+            Uri.parse('$baseUrl/users/me'),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout),
     );
-
-    // Add auth header
-    if (token != null) {
-      request.headers['Authorization'] = 'Bearer $token';
-    }
-
-    request.files.add(
-      http.MultipartFile.fromBytes('file', bytes, filename: filename),
-    );
-
-    final streamedResponse = await request.send().timeout(_timeout);
-    final response = await http.Response.fromStream(streamedResponse);
 
     return _processResponse(response);
   }
@@ -324,24 +364,6 @@ class ApiService {
 
     return _processResponse(response);
   }
-
-  /// Update an existing pond by ID.
-  /// [pondId] is the ID of the pond to update.
-  /// [pondData] contains the fields to update.
-  // Future<Map<String, dynamic>> updatePond(
-  //   String pondId,
-  //   Map<String, dynamic> pondData,
-  // ) async {
-  //   final response = await http
-  //       .patch(
-  //         Uri.parse('$baseUrl/ponds/$pondId'),
-  //         headers: _authHeaders(),
-  //         body: jsonEncode(pondData),
-  //       )
-  //       .timeout(_timeout);
-
-  //   return _processResponse(response);
-  // }
 
   /// Delete a pond by ID.
   Future<Map<String, dynamic>> deletePond(String pondId) async {
@@ -411,12 +433,32 @@ class ApiService {
     return _processResponse(response);
   }
 
+  /// Fetch feeding logs and optionally filter by pondId.
+  Future<Map<String, dynamic>> getFeedingLogs({String? pondId}) async {
+    final uri = Uri.parse(
+      '$baseUrl/feeding/logs/grouped${pondId != null ? '?pondId=${Uri.encodeComponent(pondId)}' : ''}',
+    );
+    final response = await _sendAuthenticated(
+      (headers) => http.get(uri, headers: headers).timeout(_timeout),
+    );
+    return _processResponse(response);
+  }
+
+  /// Search fish species by query (supports Khmer and English)
+  Future<Map<String, dynamic>> searchSpecies(String q) async {
+    final uri = Uri.parse(
+      '$baseUrl/feeding/species/search?q=${Uri.encodeComponent(q)}',
+    );
+    final response = await http.get(uri).timeout(_timeout);
+    return _processResponse(response);
+  }
+
   Future<Map<String, dynamic>> updatePond(
     String pondId,
     Map<String, dynamic> pondData,
   ) async {
-    // First try the current payload as-is
-    var response = await _sendAuthenticated(
+    // Preserve the complete update and surface validation errors unchanged.
+    final response = await _sendAuthenticated(
       (headers) => http
           .patch(
             Uri.parse('$baseUrl/ponds/$pondId'),
@@ -426,28 +468,87 @@ class ApiService {
           .timeout(_timeout),
     );
 
-    // If 400 (validation error), try mapping to legacy field names
-    if (response.statusCode == 400) {
-      final legacyPayload = <String, dynamic>{
-        if (pondData.containsKey('name')) 'name': pondData['name'],
-        if (pondData.containsKey('species')) 'species': pondData['species'],
-        if (pondData.containsKey('fishCount'))
-          'estimatedCount': pondData['fishCount'],
-        if (pondData.containsKey('estimatedCount'))
-          'estimatedCount': pondData['estimatedCount'],
-        if (pondData.containsKey('status')) 'status': pondData['status'],
-      };
-      response = await _sendAuthenticated(
-        (headers) => http
-            .patch(
-              Uri.parse('$baseUrl/ponds/$pondId'),
-              headers: headers,
-              body: jsonEncode(legacyPayload),
-            )
-            .timeout(_timeout),
-      );
-    }
+    return _processResponse(response);
+  }
 
+  // --------------------------------------------------
+  // Device & Hardware Reassignment
+  // --------------------------------------------------
+
+  /// List all devices
+  Future<Map<String, dynamic>> getDevices() async {
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .get(Uri.parse('$baseUrl/devices'), headers: headers)
+          .timeout(_timeout),
+    );
+    return _processResponse(response);
+  }
+
+  /// List only available devices (for pond creation)
+  Future<Map<String, dynamic>> getAvailableDevices() async {
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .get(Uri.parse('$baseUrl/devices/available'), headers: headers)
+          .timeout(_timeout),
+    );
+    return _processResponse(response);
+  }
+
+  /// Register a brand-new hardware device so it can be assigned to a pond.
+  ///
+  /// This backs the "create" path of the hardware-ID button: it generates a
+  /// device record (with its own `deviceCode` / hardware id) on the backend
+  /// without tying it to a pond yet. The returned record carries the new
+  /// `id` (UUID) and `deviceCode`, which the UI can select instantly.
+  Future<Map<String, dynamic>> createDevice({
+    required String deviceCode,
+    String? deviceName,
+    String? pondId,
+    String? status,
+  }) async {
+    final body = <String, dynamic>{'deviceCode': deviceCode};
+    if (deviceName != null) body['deviceName'] = deviceName;
+    if (pondId != null) body['pondId'] = pondId;
+    if (status != null) body['status'] = status;
+
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .post(
+            Uri.parse('$baseUrl/sensors/devices'),
+            headers: headers,
+            body: jsonEncode(body),
+          )
+          .timeout(_timeout),
+    );
+
+    return _processResponse(response);
+  }
+
+  /// Assign a device to a pond
+  Future<Map<String, dynamic>> assignDevice(
+    String deviceId,
+    String pondId,
+  ) async {
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .post(
+            Uri.parse('$baseUrl/devices/$deviceId/assign'),
+            headers: headers,
+            body: jsonEncode({'pond_id': pondId}),
+          )
+          .timeout(_timeout),
+    );
+    return _processResponse(response);
+  }
+
+  /// Mark a pond as completed/done (releases hardware)
+  Future<Map<String, dynamic>> completePond(String pondId) async {
+    final response = await _sendAuthenticated(
+      (headers) => http
+          .patch(Uri.parse('$baseUrl/ponds/$pondId/complete'), headers: headers)
+          .timeout(_timeout),
+    );
     return _processResponse(response);
   }
 
@@ -464,25 +565,22 @@ class ApiService {
     return {'Content-Type': 'application/json'};
   }
 
-  /// Runs an authenticated request and recovers from stale sessions.
-  ///
-  /// If the first attempt answers 401 (token missing in memory, expired, or
-  /// minted by an older deployment with a different JWT_SECRET), the
-  /// persisted token is reloaded once and the request retried. When the
-  /// retry still fails, the dead token is cleared so the app returns to the
-  /// login flow instead of looping on "Unauthorized".
+  /// Load the saved session before sending. A 401 invalidates only the session
+  /// used by that request, never a newer login. Replaying the same expired
+  /// token cannot refresh it; require a fresh backend login instead.
   Future<http.Response> _sendAuthenticated(
     Future<http.Response> Function(Map<String, String> headers) action,
   ) async {
+    if (token == null) await loadToken();
+    if (token == null) {
+      return http.Response('{"message":"Unauthorized"}', 401);
+    }
+    final revision = _sessionRevision;
     final response = await action(_authHeaders());
-    if (response.statusCode != 401) return response;
-
-    await loadToken();
-    final retried = await action(_authHeaders());
-    if (retried.statusCode == 401) {
+    if (response.statusCode == 401 && revision == _sessionRevision) {
       await clearToken();
     }
-    return retried;
+    return response;
   }
 
   /// Convert an http.Response into a standardized map.
@@ -492,6 +590,9 @@ class ApiService {
   /// otherwise the previously double-wrapped response made login / OTP verification
   /// always fail with "invalid response format".
   Map<String, dynamic> _processResponse(http.Response response) {
+    if (response.statusCode == 204) {
+      return {'success': true, 'data': null};
+    }
     dynamic decoded;
     try {
       decoded = jsonDecode(response.body);

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:fishcap_app/l10n/app_localizations.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../providers/user_provider.dart';
@@ -51,6 +52,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context)!;
 
     setState(() => _isLoading = true);
     final userProvider = Provider.of<UserProvider>(context, listen: false);
@@ -70,13 +72,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully')),
+          SnackBar(content: Text(l10n.profileUpdated)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update profile: $e')),
+          SnackBar(content: Text(l10n.failedToUpdateProfile)),
         );
       }
     } finally {
@@ -86,11 +88,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final user = Provider.of<UserProvider>(context).user;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profile'),
+        title: Text(l10n.editProfile),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -139,20 +142,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               // Full name field
               TextFormField(
                 controller: _fullNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Full Name',
+                decoration: InputDecoration(
+                  labelText: l10n.fullName,
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) =>
-                    value == null || value.isEmpty ? 'Please enter your name' : null,
+                    value == null || value.isEmpty ? l10n.pleaseEnterYourName : null,
               ),
               const SizedBox(height: 16),
 
               // Phone field
               TextFormField(
                 controller: _phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Phone Number',
+                decoration: InputDecoration(
+                  labelText: l10n.phoneNumber,
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.phone,
@@ -166,7 +169,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   onPressed: _isLoading ? null : _save,
                   child: _isLoading
                       ? const CircularProgressIndicator()
-                      : const Text('Save'),
+                      : Text(l10n.save),
                 ),
               ),
             ],

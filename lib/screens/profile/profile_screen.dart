@@ -231,9 +231,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
 
-        const SizedBox(height: 6),
-
-        // Phone
         if (userProvider.user?.phoneNumber != null)
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -257,6 +254,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+
+        const SizedBox(height: 6),
+
+        // Quick actions: Edit, Feeding Calculator, Settings
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(context, PageTransitions.slideFromRight(const EditProfileScreen()));
+              },
+              icon: const Icon(Icons.edit, size: 18),
+              label: const Text('Edit'),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pushNamed(context, '/feeding_calculator');
+              },
+              icon: const Icon(Icons.calculate, size: 18),
+              label: const Text('Feed Calc'),
+            ),
+            // const SizedBox(width: 12),
+            // OutlinedButton.icon(
+            //   onPressed: () {
+            //     Navigator.push(context, PageTransitions.slideFromRight(const SettingsScreen()));
+            //   },
+            //   icon: const Icon(Icons.settings, size: 18),
+            //   label: const Text('Settings'),
+            // ),
+          ],
+        ),
+
+        // Phone
+        // if (userProvider.user?.phoneNumber != null)
+        //   Row(
+        //     mainAxisAlignment: MainAxisAlignment.center,
+        //     children: [
+        //       const Icon(
+        //         Icons.phone_outlined,
+        //         size: 16,
+        //         color: AppTheme.textSecondary,
+        //       ),
+        //       const SizedBox(width: 6),
+        //       Expanded(
+        //         child: Text(
+        //           userProvider.user!.phoneNumber!,
+        //           style: TextStyle(
+        //             fontSize: ScreenHelper.fontSize(context, 14),
+        //             color: AppTheme.textSecondary,
+        //           ),
+        //           textAlign: TextAlign.center,
+        //           overflow: TextOverflow.ellipsis,
+        //         ),
+        //       ),
+        //     ],
+        //   ),
       ],
     );
   }
@@ -377,7 +432,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1.4,
+        childAspectRatio: 2.6,
       ),
       itemCount: 2,
       itemBuilder: (context, index) {
@@ -434,41 +489,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final fontSize = ScreenHelper.fontSize(context, 16);
     final valueFontSize = ScreenHelper.fontSize(context, 24);
 
+    final cardColor = Theme.of(context).colorScheme.surface;
+    final labelColor = Theme.of(context).textTheme.bodyMedium?.color ?? AppTheme.textSecondary;
+    final valueColor = Theme.of(context).textTheme.headlineMedium?.color ?? AppTheme.textPrimary;
+
     return Container(
-      padding: EdgeInsets.all(
-        ScreenHelper.responsive(context, 16, min: 12, max: 20),
-      ),
+      padding: EdgeInsets.all(ScreenHelper.responsive(context, 14, min: 10, max: 16)),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
-        borderRadius: BorderRadius.circular(16),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+                        color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 10,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: ScreenHelper.responsive(context, 24, min: 20, max: 32),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label.toUpperCase(), style: TextStyle(fontSize: fontSize - 2, color: labelColor, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Text(value, style: TextStyle(fontSize: valueFontSize, fontWeight: FontWeight.bold, color: valueColor)),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: TextStyle(fontSize: fontSize, color: AppTheme.textSecondary),
-          ),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: valueFontSize,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF123D40)
+                                    : color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? const Color(0xFF2ED7C2)
+                  : color,
             ),
           ),
         ],

@@ -4,6 +4,7 @@ class SensorData {
   final double? temperature;
   final double? ph;
   final double? dissolvedOxygen;
+  final double? tds;
   final DateTime? createdAt;
 
   SensorData({
@@ -12,6 +13,7 @@ class SensorData {
     this.temperature,
     this.ph,
     this.dissolvedOxygen,
+    this.tds,
     this.createdAt,
   });
 
@@ -33,6 +35,7 @@ class SensorData {
       dissolvedOxygen: _parseDouble(
         json['dissolvedOxygen'] ?? json['dissolved_oxygen'],
       ),
+      tds: _parseDouble(json['tds']),
       createdAt: (json['createdAt'] ?? json['created_at']) != null
           ? DateTime.tryParse((json['createdAt'] ?? json['created_at']).toString())
           : null,

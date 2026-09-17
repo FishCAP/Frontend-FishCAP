@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appName => 'AquaControl';
+  String get appName => 'FishCAP';
 
   @override
   String get appTagline => 'Precision Aquaculture Management';
@@ -349,4 +349,336 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get readNotification => 'Mark as read';
+
+  @override
+  String get loginSuccessful => 'Login successful';
+
+  @override
+  String get loginFailed => 'Login failed';
+
+  @override
+  String get pleaseEnterEmail => 'Please enter your email';
+
+  @override
+  String get pleaseEnterValidEmail => 'Please enter a valid email';
+
+  @override
+  String get pleaseEnterPassword => 'Please enter your password';
+
+  @override
+  String get pleaseAgreeToTerms => 'Please agree to the terms and conditions';
+
+  @override
+  String get registrationFailed => 'Registration failed';
+
+  @override
+  String get createAccountError => 'Failed to create account';
+
+  @override
+  String get accountVerified => 'Account verified successfully!';
+
+  @override
+  String get otpVerificationFailed => 'OTP verification failed';
+
+  @override
+  String get otpResent => 'OTP resent successfully';
+
+  @override
+  String get failedToResendOtp => 'Failed to resend OTP';
+
+  @override
+  String get enterOtpCode => 'Enter OTP Code';
+
+  @override
+  String get pleaseEnterOtpCode => 'Please enter the OTP code';
+
+  @override
+  String get otpMustBe6Digits => 'OTP must be 6 digits';
+
+  @override
+  String get otpMustBeDigitsOnly => 'OTP must contain only digits';
+
+  @override
+  String get resendOtp => 'Resend OTP';
+
+  @override
+  String get resending => 'Resending...';
+
+  @override
+  String resendOtpIn(Object count) {
+    return 'Resend OTP in $count s';
+  }
+
+  @override
+  String get alreadyVerified => 'Already verified?';
+
+  @override
+  String get profileUpdated => 'Profile updated successfully';
+
+  @override
+  String get failedToUpdateProfile => 'Failed to update profile';
+
+  @override
+  String get pleaseEnterYourName => 'Please enter your name';
+
+  @override
+  String get remove => 'Remove';
+
+  @override
+  String get english => 'English';
+
+  @override
+  String get on => 'On';
+
+  @override
+  String get off => 'Off';
+
+  @override
+  String get chooseSiteToMonitor => 'Choose a site to monitor real-time data';
+
+  @override
+  String get searchByNameOrSpecies => 'Search by name or species...';
+
+  @override
+  String get completedPonds => 'COMPLETED PONDS';
+
+  @override
+  String get completedSpecies => 'COMPLETED SPECIES';
+
+  @override
+  String get viewDashboard => 'View Dashboard';
+
+  @override
+  String get fishCount => 'Fish Count';
+
+  @override
+  String get oxygenO2 => 'Oxygen (O2)';
+
+  @override
+  String get tempLabel => 'Temp';
+
+  @override
+  String get tank => 'Tank';
+
+  @override
+  String get tankNumber => 'Tank #01';
+
+  @override
+  String get activeMonitoring => 'Active Monitoring';
+
+  @override
+  String get waterQualityStatus => 'Water Quality Status';
+
+  @override
+  String get feedSchedule => 'Feed Schedule';
+
+  @override
+  String get noFeedSchedule => 'No Feeding Schedule';
+
+  @override
+  String get viewAllFeedingEvents => 'View all feeding events';
+
+  @override
+  String get optimalStatus => 'Optimal';
+
+  @override
+  String get criticalStatus => 'Critical';
+
+  @override
+  String get waitingForSensorData => 'Waiting for sensor data...';
+
+  @override
+  String get justNow => 'just now';
+
+  @override
+  String get minutesAgo => 'min ago';
+
+  @override
+  String get hoursAgo => 'h ago';
+
+  @override
+  String get updatedPrefix => 'Updated';
+
+  @override
+  String get noDataYet => 'No data yet';
+
+  @override
+  String get lowStock => 'Low stock';
+
+  @override
+  String get stockOk => 'Stock OK';
+
+  @override
+  String get feedStockSensor => 'Feed Stock (Sensor)';
+
+  @override
+  String get live => 'LIVE';
+
+  @override
+  String get sensorDashboard => 'Sensor Dashboard';
+
+  @override
+  String get refresh => 'Refresh';
+
+  @override
+  String get noSensorData => 'No sensor data available';
+
+  @override
+  String get networkError => 'Network error';
+
+  @override
+  String get createPond => 'Create Pond';
+
+  @override
+  String get editPond => 'Edit Pond';
+
+  @override
+  String get active => 'Active';
+
+  @override
+  String get completed => 'Completed';
+
+  @override
+  String get scheduled => 'Scheduled';
+
+  @override
+  String get pending => 'Pending';
+
+  @override
+  String get deletePond => 'Delete Pond';
+
+  @override
+  String get deletePondConfirm => 'Are you sure you want to delete this pond?';
+
+  @override
+  String get pondDeleted => 'Pond deleted successfully';
+
+  @override
+  String get failedToDeletePond => 'Failed to delete pond';
+
+  @override
+  String get failedToLoadPonds => 'Failed to load ponds';
+
+  @override
+  String get errorLoadingPonds => 'Error loading ponds';
+
+  @override
+  String get activePonds => 'Active Ponds';
+
+  @override
+  String get addNewTime => 'Add New Time';
+
+  @override
+  String get feedTime => 'Feed Time';
+
+  @override
+  String get amountKg => 'Amount (kg)';
+
+  @override
+  String get statusLabel => 'Status';
+
+  @override
+  String get actionsLabel => 'Actions';
+
+  @override
+  String get timeLabel => 'Time';
+
+  @override
+  String get typeToSearch => 'Type to search (Kh/En)';
+
+  @override
+  String get enterNumberOfFish => 'Enter number of fish';
+
+  @override
+  String get eg50 => 'e.g. 50';
+
+  @override
+  String get calculate => 'Calculate';
+
+  @override
+  String get results => 'Results';
+
+  @override
+  String get totalDailyFeed => 'Total daily feed';
+
+  @override
+  String get perFeed3x => 'Per feed (3x)';
+
+  @override
+  String get monthlyBudget => 'Monthly budget (30 days)';
+
+  @override
+  String get recommendedSchedule => 'Recommended schedule';
+
+  @override
+  String get morningSchedule => 'Morning';
+
+  @override
+  String get middaySchedule => 'Midday';
+
+  @override
+  String get eveningSchedule => 'Evening';
+
+  @override
+  String get stockingDateOptional => 'Stocking date (optional)';
+
+  @override
+  String get notSet => 'Not set';
+
+  @override
+  String get pickDate => 'Pick date';
+
+  @override
+  String get avgWeightPerFish => 'Or enter current average weight per fish (g)';
+
+  @override
+  String get searchSpecies => 'Search species';
+
+  @override
+  String get noPonds => 'No ponds available';
+
+  @override
+  String get sensorDataUpdated => 'Sensor data updated';
+
+  @override
+  String get offline => 'Offline';
+
+  @override
+  String get online => 'Online';
+
+  @override
+  String get noScheduleForToday => 'No schedule for today';
+
+  @override
+  String get feedCount => 'Feed';
+
+  @override
+  String get noSensorDataAvailable => 'No sensor data available';
+
+  @override
+  String get pleaseEnterPhoneNumber => 'Please enter your phone number';
+
+  @override
+  String get pleaseConfirmPassword => 'Please confirm your password';
+
+  @override
+  String get passwordsDoNotMatch => 'Passwords do not match';
+
+  @override
+  String get verifyYourEmail => 'Verify Your Email';
+
+  @override
+  String get otpSentTo => 'We sent a verification code to';
+
+  @override
+  String get verifyEmail => 'Verify Email';
+
+  @override
+  String get alerts => 'ALERTS';
+
+  @override
+  String get noCompletedPonds => 'No completed ponds yet';
+
+  @override
+  String get unknown => 'Unknown';
 }

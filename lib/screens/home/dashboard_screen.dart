@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:fishcap_app/l10n/app_localizations.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import '../../app/theme.dart';
 import '../../models/pond.dart';
 import '../../services/api_service.dart';
+import '../../services/realtime_service.dart';
 import '../../utils/page_transitions.dart';
 import '../schedule/schedule_screen.dart';
 import '../history/history_screen.dart';
@@ -12,7 +14,7 @@ import '../profile/profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String pondId;
-  final String pondName; // optional, shown while loading
+  final String pondName;
 
   const DashboardScreen({super.key, required this.pondId, this.pondName = ''});
 
@@ -31,9 +33,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _loadDetail();
-    // The ESP32 pushes fresh sensor telemetry every ~60s; poll the pond
-    // detail (which embeds the latest sensor readings) every 30s so the
-    // dashboard updates automatically while the page stays open.
     _pollTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) => _loadDetail(silent: true),
@@ -46,20 +45,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
-  /// Fetches the pond detail (including the latest sensor readings).
-  /// When [silent] is true the currently displayed data stays on screen
-  /// while refreshing — used by the auto-poll so values change in place
-  /// instead of flashing a spinner.
   Future<void> _loadDetail({bool silent = false}) async {
     if (!silent) setState(() => _isLoading = true);
     try {
       final result = await _api.getPondById(widget.pondId);
       if (!mounted) return;
       if (result['success'] == true && result['data'] is Map<String, dynamic>) {
+        final pond = result['data'] as Map<String, dynamic>;
         setState(() {
-          _pond = result['data'] as Map<String, dynamic>;
+          _pond = pond;
           _error = null;
         });
+
+        final deviceId = (pond['sensorDeviceId'] ?? pond['deviceId'] ?? '')
+            .toString();
+        final lowStock = pond['lowStock'] == true || pond['lowStock'] == 'true';
+        RealtimeService.instance.notifyLowStockIfNeeded(
+          deviceId: deviceId,
+          lowStock: lowStock,
+          remainingStockGrams:
+              pond['remainingStockGrams'] ?? pond['weightGrams'],
+        );
       } else if (!silent || _pond == null) {
         setState(() {
           _error = result['message']?.toString() ?? 'Failed to load details';
@@ -67,7 +73,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      // Keep stale data visible on silent background refresh failures.
       if (!silent || _pond == null) {
         setState(() => _error = 'Error: $e');
       }
@@ -76,12 +81,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Converts a "8:00 AM"/"8:00 PM"/"08:30" string into 24h "HH:mm" so it can
-  // be persisted through the pond's feedingSchedules payload (the backend's
-  // feed_time column is a Postgres TIME, which expects 24h values).
+  // ── Time helpers ──────────────────────────────────────────────
   String _to24Hour(String time) {
     final match = RegExp(
-      r'^(\d{1,2}):(\d{2})\s*([AP]M)?$',
+      r'^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AP]M)?$',
       caseSensitive: false,
     ).firstMatch(time.trim());
 
@@ -89,9 +92,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     var hour = int.parse(match.group(1)!);
     final minute = match.group(2)!;
-    final meridiem = match.group(3)?.toUpperCase();
+    final meridiem = match.group(4)?.toUpperCase();
 
     if (meridiem != null) {
+      if (hour < 1 || hour > 12) return time.trim();
       if (meridiem == 'PM' && hour != 12) hour += 12;
       if (meridiem == 'AM' && hour == 12) hour = 0;
     } else if (hour > 23) {
@@ -101,33 +105,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return '${hour.toString().padLeft(2, '0')}:$minute';
   }
 
-  /// Parses a 12h/24h time string into a [TimeOfDay].
+  /// Reads schedule time from either legacy `time` or API `feedTime`.
+  String _scheduleTime(Map s) => (s['time'] ?? s['feedTime'] ?? '').toString();
+
+  /// Reads schedule amount from either legacy `amount` or API `feedAmount`.
+  dynamic _scheduleAmount(Map s) =>
+      s['amount'] ?? s['feedAmount'] ?? s['feed_amount'];
+
   TimeOfDay _parseScheduleTime(String time) {
     final parts = _to24Hour(time).split(':');
-    if (parts.length == 2) {
+    if (parts.length >= 2) {
       final hour = int.tryParse(parts[0]);
       final minute = int.tryParse(parts[1]);
       if (hour != null && minute != null) {
         return TimeOfDay(hour: hour, minute: minute);
       }
     }
+    // CHANGED (Issue 3): log the failure instead of silently falling back.
+    debugPrint('[Schedule] parse failed for "$time" → using now()');
     return TimeOfDay.now();
   }
 
-  /// Builds the `{time, amount}` list the pond update endpoint expects from
-  /// the raw feedSchedules maps returned by the detail API.
+  // Read legacy response aliases, but write only FeedingScheduleItemDto fields.
   List<Map<String, dynamic>> _scheduleUpdatePayload(List<dynamic> schedules) {
     return schedules.whereType<Map>().map((s) {
-      final amount = s['amount'];
+      final amount = _scheduleAmount(s);
+      final amountVal = amount is num ? amount.toDouble() : 0;
       return <String, dynamic>{
-        'time': _to24Hour(s['time']?.toString() ?? ''),
-        'amount': amount is num ? amount.toDouble() : 0,
+        'time': _to24Hour(_scheduleTime(s)),
+        'amount': amountVal,
       };
     }).toList();
   }
 
-  /// Persists a modified schedule list (owner-scoped pond update) and
-  /// refreshes the dashboard.
   Future<void> _saveScheduleList(
     List<dynamic> schedules, {
     String successMessage = 'Feed schedule updated',
@@ -160,7 +170,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  /// Edits a single schedule (time + amount) through a dialog, then saves.
   Future<void> _editFeedSchedule(
     BuildContext context,
     List<dynamic> schedules,
@@ -172,12 +181,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final original = raw is Map
         ? Map<String, dynamic>.from(raw)
         : <String, dynamic>{};
-    final initialTime = _parseScheduleTime(original['time']?.toString() ?? '');
+    final initialTime = _parseScheduleTime(_scheduleTime(original));
     final timeController = TextEditingController(
       text: initialTime.format(context),
     );
     final amountController = TextEditingController(
-      text: original['amount'] != null ? original['amount'].toString() : '',
+      text: _scheduleAmount(original)?.toString() ?? '',
     );
     TimeOfDay pickedTime = initialTime;
 
@@ -258,12 +267,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
 
     final newAmountText = amountController.text.trim();
-    amountController.dispose();
-    timeController.dispose();
 
-    if (save != true || !mounted) return;
-
-    if (index < 0 || index >= schedules.length) return;
+    if (save != true || !mounted) {
+      amountController.dispose();
+      timeController.dispose();
+      return;
+    }
+    if (index < 0 || index >= schedules.length) {
+      amountController.dispose();
+      timeController.dispose();
+      return;
+    }
 
     final updated = Map<String, dynamic>.from(original);
     updated['time'] =
@@ -271,10 +285,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     updated['amount'] = double.tryParse(newAmountText) ?? 0;
     schedules[index] = updated;
 
+    amountController.dispose();
+    timeController.dispose();
+
     await _saveScheduleList(schedules);
   }
 
-  /// Confirms and removes one schedule, then saves the remaining list.
   Future<void> _deleteFeedSchedule(
     BuildContext context,
     List<dynamic> schedules,
@@ -283,7 +299,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (!mounted) return;
 
     final raw = schedules[index];
-    final timeLabel = raw is Map ? (raw['time']?.toString() ?? '') : '';
+    final timeLabel = raw is Map ? _scheduleTime(raw) : '';
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -307,21 +323,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
 
     if (confirmed != true || !mounted) return;
-
     if (index >= 0 && index < schedules.length) {
       schedules.removeAt(index);
     }
-
     await _saveScheduleList(schedules);
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
-            // Header with back button (always visible)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Row(
@@ -345,8 +359,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-
-            // Main content area (auto-refreshing, pull-to-refresh enabled)
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () => _loadDetail(),
@@ -356,8 +368,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
       ),
-
-      // Custom Bottom Navigation (unchanged)
       bottomNavigationBar: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
@@ -375,9 +385,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildNavItem(
-              context,
               icon: Icons.calendar_today,
-              label: 'Schedule',
+              label: l10n.schedule,
               isSelected: false,
               onTap: () {
                 Navigator.pushReplacement(
@@ -387,9 +396,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
             ),
             _buildNavItem(
-              context,
               icon: Icons.history,
-              label: 'History',
+              label: l10n.history,
               isSelected: false,
               onTap: () {
                 Navigator.pushReplacement(
@@ -399,9 +407,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               },
             ),
             _buildNavItem(
-              context,
               icon: Icons.person,
-              label: 'Profile',
+              label: l10n.profile,
               isSelected: false,
               onTap: () {
                 Navigator.pushReplacement(
@@ -416,9 +423,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Resolves the main scrollable body from the cached pond data.
-  /// Always wraps the result in a [SingleChildScrollView] so that
-  /// [RefreshIndicator] always has a scrollable child.
   Widget _buildBody() {
     if (_isLoading && _pond == null) {
       return const SingleChildScrollView(
@@ -436,9 +440,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Builds the prominent Active / Done toggle displayed at the top of the
-  /// pond dashboard. An active pond can be marked as done (it then moves to
-  /// History); a done pond can be reactivated (it then returns to Schedule).
   Widget _buildStatusToggle(bool isDone) {
     final Color accent = isDone ? AppTheme.warningColor : AppTheme.successColor;
     return Material(
@@ -485,14 +486,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Toggles the pond's status between active and done, persists the change
-  /// to the backend, and pops back to the Schedule screen so the active/done
-  /// lists are refreshed.
   Future<void> _togglePondStatus(bool currentlyDone) async {
-    final targetStatus = currentlyDone ? Pond.activeStatus : Pond.doneStatus;
-    final result = await _api.updatePond(widget.pondId, {
-      'status': targetStatus,
-    });
+    // Completing MUST release the bound hardware: the device's pond binding
+    // (devices.pond_id) is the only source the ESP32 schedule poll uses.
+    // PATCH /ponds/:id/complete (completePond) stamps endDate and frees the
+    // device; a plain status update would leave the feeder polling a finished
+    // pond's schedules. Reactivating only flips the status back.
+    final result = currentlyDone
+        ? await _api.updatePond(widget.pondId, {'status': Pond.activeStatus})
+        : await _api.completePond(widget.pondId);
     if (!mounted) return;
     if (result['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -507,8 +509,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               : AppTheme.warningColor,
         ),
       );
-      // Let the user read the confirmation, then return to the Schedule
-      // screen so the active/done lists reflect the new status.
       await Future.delayed(const Duration(milliseconds: 1300));
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -522,19 +522,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Build the main content with dynamic data
+  // ─────────────────────────────────────────────────────────────
+  //  Main content
+  // ─────────────────────────────────────────────────────────────
   Widget _buildDashboardContent(Map<String, dynamic> pond) {
-    // Extract fields with fallbacks
     final fishCount = pond['fishCount']?.toString() ?? 'N/A';
     final fishType = pond['fishType']?.toString() ?? 'Unknown';
     final stockingDuration = pond['stockingDuration']?.toString() ?? 'N/A';
     final expectedHarvest = pond['expectedHarvest']?.toString() ?? 'N/A';
-    final pondId =
-        pond['id']?.toString() ?? widget.pondId; // fallback to widget.pondId
 
-    // Status toggle: 'active' ponds live on the Schedule screen, 'done'
-    // ponds live in the History screen. Tapping the toggle in the dashboard
-    // flips a pond between the two.
     final status = (pond['status'] ?? Pond.activeStatus)
         .toString()
         .toLowerCase();
@@ -543,31 +539,96 @@ class _DashboardScreenState extends State<DashboardScreen> {
         status == 'completed' ||
         status == 'finished';
 
-    // Alert
-    final alertTitle = pond['alertTitle']?.toString() ?? '';
-    final alertMessage = pond['alertMessage']?.toString() ?? '';
-    final hasAlert = alertTitle.isNotEmpty;
+    // ── Sensor values ────────────────────────────────────────────
+    final tds = pond['tds']?.toString() ?? '--';
+    const tdsUnit = 'ppm';
+    final tdsStatus = pond['tdsStatus']?.toString() ?? 'Unknown';
 
-    // Water quality. Backend sends null when no sensor data exists yet —
-    // show "--" instead of a misleading 0.
-    final oxygen = pond['oxygen']?.toString() ?? '--';
-    final oxygenUnit = pond['oxygenUnit']?.toString() ?? 'mg/L';
-    final oxygenStatus = pond['oxygenStatus']?.toString() ?? 'Unknown';
     final temperature = pond['temperature']?.toString() ?? '--';
     final temperatureStatus =
         pond['temperatureStatus']?.toString() ?? 'Unknown';
+
     final pH = pond['pH']?.toString() ?? '--';
     final pHStatus = pond['pHStatus']?.toString() ?? 'Unknown';
 
-    // Feed schedules
-    final feedSchedules = pond['feedSchedules'] as List<dynamic>? ?? [];
+    // ── Parse numeric values (guard against nulls and dead probes) ──
+    double? asDouble(String s) => s == '--' ? null : double.tryParse(s);
 
-    // Monitoring image
+    final double? tdsVal = asDouble(tds);
+    final double? phVal = asDouble(pH);
+    final double? tempVal = asDouble(temperature);
+
+    // A reading is "usable" only when the value is present AND non-zero.
+    // TDS = 0 means the probe is disconnected — not an abnormal water
+    // condition. pH = 0 is likewise impossible in real water.
+    final bool hasTdsReading = tdsVal != null && tdsVal > 0;
+    final bool hasPhReading = phVal != null && phVal > 0;
+    final bool hasTempReading = tempVal != null && tempVal != 0;
+
+    // Status is only trusted when the reading itself is usable.
+    bool isAbnormal(String statusLabel, bool hasReading) =>
+        hasReading &&
+        statusLabel != 'Good' &&
+        statusLabel != 'Moderate' &&
+        statusLabel != 'Unknown';
+
+    final bool tdsAbnormal = isAbnormal(tdsStatus, hasTdsReading);
+    final bool phAbnormal = isAbnormal(pHStatus, hasPhReading);
+    final bool tempAbnormal = isAbnormal(temperatureStatus, hasTempReading);
+
+    // ── Low-stock detection ─────────────────────────────────────
+    final dynamic rawRemaining =
+        pond['remainingStockGrams'] ?? pond['weightGrams'];
+    final double? remainingGrams = rawRemaining is num
+        ? rawRemaining.toDouble()
+        : double.tryParse(rawRemaining?.toString() ?? '');
+
+    final bool lowStock =
+        pond['lowStock'] == true ||
+        (remainingGrams != null && remainingGrams > 0 && remainingGrams < 100);
+
+    // ── Build the ordered issue list (most urgent first) ────────
+    final List<String> issues = [];
+    final List<String> alertSensors = [];
+
+    if (phAbnormal) {
+      issues.add('pH abnormal: $pH');
+      alertSensors.add('pH');
+    }
+    if (tempAbnormal) {
+      issues.add('Temperature abnormal: $temperature°C');
+      alertSensors.add('Temp');
+    }
+    if (tdsAbnormal) {
+      issues.add('TDS abnormal: $tds $tdsUnit');
+      alertSensors.add('TDS');
+    }
+    if (lowStock) {
+      issues.add('Low feed stock — refill the hopper soon.');
+      alertSensors.add('Feed');
+    }
+
+    final backendAlertTitle = pond['alertTitle']?.toString() ?? '';
+    final backendAlertMessage = pond['alertMessage']?.toString() ?? '';
+
+    final bool hasAlert = issues.isNotEmpty || backendAlertTitle.isNotEmpty;
+
+    final String computedAlertTitle = backendAlertTitle.isNotEmpty
+        ? backendAlertTitle
+        : alertSensors.isEmpty
+        ? 'Sensor Alert'
+        : '${alertSensors.join(' & ')} Alert';
+
+    final String computedAlertMessage = backendAlertMessage.isNotEmpty
+        ? backendAlertMessage
+        : issues.join('\n');
+
+    final feedSchedules = pond['feedSchedules'] as List<dynamic>? ?? [];
     final monitoringImage = pond['monitoringImage']?.toString() ?? '';
 
-    Future<void> _showAddFeedScheduleDialog(
+    // ── Add-schedule dialog (kept as a nested function to keep scope) ──
+    Future<void> showAddFeedScheduleDialog(
       BuildContext context,
-      String pondId,
       List<dynamic> feedSchedules,
     ) async {
       final amountController = TextEditingController();
@@ -657,18 +718,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       );
 
-      // Read the picked time (already 24h "HH:mm") and the amount before
-      // disposing the controllers.
       final time = selectedTime == null
           ? ''
           : '${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}';
       final amountText = amountController.text.trim();
 
-      amountController.dispose();
-      timeController.dispose();
+      if (shouldAdd != true || !mounted) {
+        amountController.dispose();
+        timeController.dispose();
+        return;
+      }
 
-      if (shouldAdd != true || !mounted) return;
-
+      // CHANGED (Issue 3): write only FeedingScheduleItemDto fields.
       feedSchedules.add({
         'time': time,
         'amount': double.tryParse(amountText) ?? 0,
@@ -685,11 +746,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Active / Done toggle
           _buildStatusToggle(isDone),
           const SizedBox(height: 16),
 
-          // Info Cards Row 1
           Row(
             children: [
               Expanded(
@@ -713,7 +772,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Info Cards Row 2
           Row(
             children: [
               Expanded(
@@ -737,7 +795,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Alert Card (if any)
+          // ── Alert card — only rendered when attention is required ──
           if (hasAlert) ...[
             Container(
               padding: const EdgeInsets.all(16),
@@ -750,38 +808,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    width: 40,
-                    height: 40,
+                    width: 44,
+                    height: 44,
                     decoration: const BoxDecoration(
                       color: AppTheme.errorColor,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
-                      Icons.warning_amber,
+                      Icons.warning_amber_rounded,
                       color: Colors.white,
-                      size: 24,
+                      size: 26,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          alertTitle,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.errorColor,
-                          ),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                computedAlertTitle,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.errorColor,
+                                ),
+                              ),
+                            ),
+                            if (issues.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.errorColor,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${issues.length}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 6),
                         Text(
-                          alertMessage,
+                          computedAlertMessage,
                           style: const TextStyle(
-                            fontSize: 14,
+                            fontSize: 13,
+                            height: 1.4,
                             color: AppTheme.textSecondary,
                           ),
                         ),
@@ -794,7 +879,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 32),
           ],
 
-          // Water Quality Status Section
+          // ── Water Quality section ─────────────────────────────────
           Text(
             'Water Quality Status',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -804,18 +889,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Water Quality Cards (3 cards in a row)
           Row(
             children: [
               Expanded(
                 child: _buildQualityCard(
                   context,
-                  'Oxygen (O2)',
-                  oxygen,
-                  oxygenUnit,
-                  _statusColor(oxygenStatus),
-                  oxygenStatus,
-                  Icons.air,
+                  'TDS (ppm)',
+                  tds,
+                  tdsUnit,
+                  _statusColor(tdsStatus),
+                  tdsStatus,
+                  Icons.water_drop,
+                  isAlert: tdsAbnormal,
                 ),
               ),
               const SizedBox(width: 12),
@@ -824,10 +909,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   context,
                   'Temp',
                   temperature,
-                  '',
+                  '°C',
                   _statusColor(temperatureStatus),
                   temperatureStatus,
                   Icons.thermostat,
+                  isAlert: tempAbnormal,
                 ),
               ),
               const SizedBox(width: 12),
@@ -840,17 +926,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   _statusColor(pHStatus),
                   pHStatus,
                   Icons.science,
+                  isAlert: phAbnormal,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 24),
 
-          // Feed stock (HX711 load cell) — live sensor weight
           _buildFeedStockSection(pond),
           const SizedBox(height: 24),
 
-          // Active Monitoring Image Card (if image URL provided)
           if (monitoringImage.isNotEmpty) ...[
             Container(
               width: double.infinity,
@@ -906,7 +991,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 32),
           ],
 
-          // Feed Schedule Section
+          // ── Feed Schedule section ─────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -923,10 +1008,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+
+          Builder(
+            builder: (context) {
+              final dynamic estCount =
+                  pond['estimatedCount'] ?? pond['fishCount'] ?? 0;
+              final int count = estCount is num
+                  ? estCount.toInt()
+                  : int.tryParse(estCount?.toString() ?? '0') ?? 0;
+              final dynamic rawAvg =
+                  pond['avgWeightGrams'] ?? pond['initialWeight'] ?? 50;
+              final double avgWeight = rawAvg is num
+                  ? rawAvg.toDouble()
+                  : double.tryParse(rawAvg?.toString() ?? '50') ?? 50.0;
+              final dynamic rawRate = pond['feedingRatePercent'] ?? 3;
+              final double feedingRate = rawRate is num
+                  ? rawRate.toDouble()
+                  : double.tryParse(rawRate?.toString() ?? '3') ?? 3.0;
+              final total = (count * avgWeight * (feedingRate / 100));
+              return Card(
+                color: AppTheme.cardColor,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Recommended daily feed',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '$count fish • ${avgWeight.toStringAsFixed(0)} g/fish • ${feedingRate.toStringAsFixed(1)}%',
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '${(total / 1000).toStringAsFixed(2)} kg',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '3x: ${(total / 3 / 1000).toStringAsFixed(3)} kg',
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
           const SizedBox(height: 16),
 
-          // Feed Schedule Items (dynamic)
-          // Feed Schedule Items (dynamic)
           if (feedSchedules.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
@@ -935,14 +1080,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           else
             ...feedSchedules.asMap().entries.map((entry) {
               final index = entry.key;
-              final schedule = entry.value;
-              final time = schedule['time']?.toString() ?? '';
-              final title = schedule['title']?.toString() ?? '';
-              final status = schedule['status']?.toString() ?? 'Pending';
-              final statusColor = status == 'Scheduled'
+              final schedule = entry.value as Map;
+              final time = _scheduleTime(schedule);
+              final amount = _scheduleAmount(schedule);
+              final title = (schedule['title'] ?? '').toString();
+              final statusLabel = (schedule['status'] ?? 'Scheduled')
+                  .toString();
+              final statusColor = statusLabel == 'Scheduled'
                   ? AppTheme.primaryColor
                   : AppTheme.successColor;
-              final icon = status == 'Scheduled'
+              final icon = statusLabel == 'Scheduled'
                   ? Icons.schedule
                   : Icons.access_time;
 
@@ -951,8 +1098,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: _buildFeedScheduleItem(
                   context,
                   time: time,
+                  amount: amount,
                   label: title,
-                  status: status,
+                  status: statusLabel,
                   statusColor: statusColor,
                   icon: icon,
                   onEdit: () =>
@@ -964,12 +1112,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }),
 
           const SizedBox(height: 16),
-          // Add New Time Button
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () =>
-                  _showAddFeedScheduleDialog(context, pondId, feedSchedules),
+                  showAddFeedScheduleDialog(context, feedSchedules),
               icon: const Icon(Icons.add_alarm, color: AppTheme.primaryColor),
               label: const Text(
                 'Add New Time',
@@ -995,24 +1142,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Helper widgets (unchanged from original except for minor adjustments)
+  // ─────────────────────────────────────────────────────────────
+  //  Helpers
+  // ─────────────────────────────────────────────────────────────
 
-  /// Formats a weight given in grams; switches to kg above 1 kg. The backend
-  /// serializes DECIMAL columns as strings, so accept num or String input.
   String _formatWeight(dynamic grams) {
     if (grams == null) return '--';
     final double? value = grams is num
         ? grams.toDouble()
         : double.tryParse(grams.toString());
     if (value == null) return '--';
-    if (value >= 1000) return '${(value / 1000).toStringAsFixed(2)} kg';
-    return '${value.toStringAsFixed(1)} g';
+    return '${(value / 1000).toStringAsFixed(3)} kg';
   }
 
-  /// "Feed Stock (Sensor)" section — live HX711 load-cell weight of the
-  /// remaining feed. Values refresh automatically via the 30s poll, and the
-  /// card highlights when the ESP32 reports a low-stock condition.
   Widget _buildFeedStockSection(Map<String, dynamic> pond) {
+    final l10n = AppLocalizations.of(context)!;
     final dynamic rawWeight =
         pond['remainingStockGrams'] ?? pond['weightGrams'];
     final bool lowStock = pond['lowStock'] == true;
@@ -1031,7 +1175,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final diff = DateTime.now().difference(updatedAt);
       final String ago;
       if (diff.inSeconds < 90) {
-        ago = 'just now';
+        ago = l10n.justNow;
       } else if (diff.inMinutes < 60) {
         ago = '${diff.inMinutes} min ago';
       } else {
@@ -1045,13 +1189,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final String statusLabel;
     final Color statusColor;
     if (!hasStockData(rawWeight)) {
-      statusLabel = 'No data yet';
+      statusLabel = l10n.noDataYet;
       statusColor = AppTheme.textSecondary;
     } else if (lowStock) {
-      statusLabel = 'Low stock';
+      statusLabel = l10n.lowStock;
       statusColor = AppTheme.errorColor;
     } else {
-      statusLabel = 'Stock OK';
+      statusLabel = l10n.stockOk;
       statusColor = AppTheme.successColor;
     }
 
@@ -1062,7 +1206,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'Feed Stock (Sensor)',
+              l10n.feedStockSensor,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textPrimary,
@@ -1081,19 +1225,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Row(
                   children: [
                     Container(
-                      width: 8,
-                      height: 8,
+                      width: 7,
+                      height: 7,
                       decoration: const BoxDecoration(
                         color: AppTheme.successColor,
                         shape: BoxShape.circle,
                       ),
                     ),
                     const SizedBox(width: 6),
-                    const Text(
-                      'LIVE',
-                      style: TextStyle(
+                    Text(
+                      l10n.live,
+                      style: const TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.6,
                         color: AppTheme.successColor,
                       ),
                     ),
@@ -1102,28 +1247,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         Container(
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: statusColor.withValues(alpha: 0.35),
-              width: 1,
+              color: statusColor.withValues(alpha: 0.30),
+              width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
                     width: 52,
@@ -1132,36 +1279,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: statusColor.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(Icons.scale, size: 28, color: statusColor),
+                    child: Icon(Icons.scale, size: 26, color: statusColor),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Remaining feed',
                           style: TextStyle(
                             fontSize: 13,
                             color: AppTheme.textSecondary,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _formatWeight(rawWeight),
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
+                        const SizedBox(height: 2),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            _formatWeight(rawWeight),
+                            maxLines: 1,
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary,
+                              height: 1.1,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 10),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
-                      vertical: 6,
+                      vertical: 7,
                     ),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.12),
@@ -1171,8 +1325,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 8,
-                          height: 8,
+                          width: 7,
+                          height: 7,
                           decoration: BoxDecoration(
                             color: statusColor,
                             shape: BoxShape.circle,
@@ -1198,8 +1352,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.errorColor.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppTheme.errorColor.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Row(
                     children: [
@@ -1208,7 +1362,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         size: 20,
                         color: AppTheme.errorColor,
                       ),
-                      SizedBox(width: 8),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Low feed stock — refill the hopper soon.',
@@ -1216,6 +1370,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.errorColor,
+                            height: 1.3,
                           ),
                         ),
                       ),
@@ -1225,25 +1380,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
               const SizedBox(height: 14),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
                     child: Text(
                       ageText,
-                      style: TextStyle(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppTheme.textSecondary,
                       ),
                     ),
                   ),
-                  if (deviceId.isNotEmpty)
+                  if (deviceId.isNotEmpty) ...[
+                    const SizedBox(width: 12),
                     Text(
                       'Device: $deviceId',
-                      style: TextStyle(
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppTheme.textSecondary,
                       ),
                     ),
+                  ],
                 ],
               ),
             ],
@@ -1253,29 +1413,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// True when the payload carries a usable weight value (num or numeric
-  /// string — DECIMAL columns arrive as strings).
   bool hasStockData(dynamic value) {
     if (value == null) return false;
     if (value is num) return true;
     return double.tryParse(value.toString()) != null;
   }
 
-  /// Maps a backend water-quality status label to the dot/border color.
-  /// The backend sends Good/Moderate/Low/Abnormal/Unknown (never "Optimal",
-  /// which is why every card previously rendered with the error color).
   Color _statusColor(String? status) {
     switch (status) {
       case 'Good':
       case 'Optimal':
         return AppTheme.successColor;
       case 'Moderate':
-        return const Color(0xFFF9A825); // amber warning
+        return const Color(0xFFF9A825);
       case 'Low':
       case 'High':
       case 'Abnormal':
         return AppTheme.errorColor;
-      default: // 'Unknown' or anything unrecognized
+      default:
         return AppTheme.textSecondary;
     }
   }
@@ -1306,12 +1461,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 16),
           Text(
             label,
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimary,
@@ -1329,13 +1484,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String unit,
     Color statusColor,
     String status,
-    IconData icon,
-  ) {
+    IconData icon, {
+    bool isAlert = false,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor,
+        color: isAlert
+            ? AppTheme.errorColor.withValues(alpha: 0.04)
+            : AppTheme.cardColor,
         borderRadius: BorderRadius.circular(16),
+        border: isAlert
+            ? Border.all(
+                color: AppTheme.errorColor.withValues(alpha: 0.45),
+                width: 1.5,
+              )
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1347,51 +1511,82 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: AppTheme.textSecondary),
-          const SizedBox(height: 12),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: (isAlert ? AppTheme.errorColor : AppTheme.textSecondary)
+                  .withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: isAlert ? AppTheme.errorColor : AppTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 10),
           Text(
             label,
-            style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                      height: 1.0,
+                    ),
+                  ),
                 ),
               ),
               if (unit.isNotEmpty) ...[
                 const SizedBox(width: 4),
-                Text(
-                  unit,
-                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 2),
+                  child: Text(
+                    unit,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
                 ),
               ],
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               Container(
-                width: 8,
-                height: 8,
+                width: isAlert ? 8 : 7,
+                height: isAlert ? 8 : 7,
                 decoration: BoxDecoration(
                   color: statusColor,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 6),
-              Text(
-                status,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: statusColor,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  status,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: isAlert ? FontWeight.w700 : FontWeight.w600,
+                    color: statusColor,
+                  ),
                 ),
               ),
             ],
@@ -1404,6 +1599,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildFeedScheduleItem(
     BuildContext context, {
     required String time,
+    required dynamic amount,
     required String label,
     required String status,
     required Color statusColor,
@@ -1411,6 +1607,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required VoidCallback onEdit,
     required VoidCallback onDelete,
   }) {
+    final amountStr = amount == null
+        ? ''
+        : '${double.tryParse(amount.toString())?.toStringAsFixed(2) ?? amount} kg';
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1450,7 +1650,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  label,
+                  amountStr.isNotEmpty ? amountStr : label,
                   style: const TextStyle(
                     fontSize: 14,
                     color: AppTheme.textSecondary,
@@ -1518,8 +1718,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildNavItem(
-    BuildContext context, {
+  Widget _buildNavItem({
     required IconData icon,
     required String label,
     required bool isSelected,

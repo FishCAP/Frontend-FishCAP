@@ -4,7 +4,7 @@ class AppTheme {
   static const Color primaryColor = Color(0xFF0D7377);
   static const Color secondaryColor = Color(0xFF14A098);
   static const Color accentColor = Color(0xFF32E0C4);
-  static const Color backgroundColor = Color(0xFFF5F7FA);
+  static const Color backgroundColor = Color(0xFFF0F4F8);
   static const Color cardColor = Colors.white;
   static const Color textPrimary = Color(0xFF2C3E50);
   static const Color textSecondary = Color(0xFF7F8C8D);
@@ -12,6 +12,8 @@ class AppTheme {
   static const Color successColor = Color(0xFF27AE60);
   static const Color warningColor = Color(0xFFF39C12);
   static const Color borderColor = Color(0xFFE0E0E0);
+  static const Color darkButtonBg = Color(0xFF123D40);
+  static const Color darkButtonIcon = Color(0xFF2ED7C2);
 
   static ThemeData get lightTheme {
     return ThemeData(
@@ -22,6 +24,27 @@ class AppTheme {
         secondary: secondaryColor,
         surface: cardColor,
         error: errorColor,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        foregroundColor: textPrimary,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: IconThemeData(color: textPrimary),
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: cardColor,
+        selectedItemColor: primaryColor,
+        unselectedItemColor: textSecondary,
+        showUnselectedLabels: true,
+        selectedLabelStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       useMaterial3: true,
       fontFamily: 'Roboto',
@@ -102,6 +125,27 @@ class AppTheme {
         surface: Color(0xFF16213E),
         error: errorColor,
       ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: IconThemeData(color: Colors.white70),
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.black.withValues(alpha: 0.3),
+        selectedItemColor: primaryColor,
+        unselectedItemColor: Colors.white60,
+        showUnselectedLabels: true,
+        selectedLabelStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
       useMaterial3: true,
       textTheme: const TextTheme(
         headlineLarge: TextStyle(
@@ -133,6 +177,22 @@ class AppTheme {
           color: Colors.white60,
         ),
       ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: darkButtonBg,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: darkButtonIcon),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(foregroundColor: darkButtonIcon, side: const BorderSide(color: darkButtonBg)),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(backgroundColor: darkButtonBg, foregroundColor: Colors.white),
+      iconTheme: const IconThemeData(color: Colors.white70),
     );
   }
 }

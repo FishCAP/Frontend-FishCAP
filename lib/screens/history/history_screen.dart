@@ -138,7 +138,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       snapshot.data!['success'] != true) {
                     return Center(
                       child: Text(
-                        snapshot.data?['message'] ?? 'Failed to load ponds',
+                        snapshot.data?['message'] ?? l10n.failedToLoadPonds,
                       ),
                     );
                   } else {
@@ -156,7 +156,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           children: [
                             // Subtitle
                             Text(
-                              'Choose a site to monitor real-time data',
+                              l10n.chooseSiteToMonitor,
                               style: TextStyle(
                                 fontSize: 16,
                                 color: AppTheme.textSecondary,
@@ -194,7 +194,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                       onChanged: _filterPonds,
                                       decoration: InputDecoration(
                                         hintText:
-                                            'Search by name or species...',
+                                            l10n.searchByNameOrSpecies,
                                         hintStyle: TextStyle(
                                           fontSize: 16,
                                           color: AppTheme.textSecondary,
@@ -220,7 +220,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 Expanded(
                                   child: _buildStatCard(
                                     context,
-                                    title: 'COMPLETED PONDS',
+                                    title: l10n.completedPonds,
                                     value: '${_allPonds.length}',
                                     valueColor: AppTheme.textPrimary,
                                   ),
@@ -229,7 +229,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 Expanded(
                                   child: _buildStatCard(
                                     context,
-                                    title: 'ALERTS',
+                                    title: l10n.alerts,
                                     value:
                                         '${_allPonds.where((p) => p['hasAlert'] == true).length}',
                                     valueColor: AppTheme.errorColor,
@@ -241,20 +241,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
                             // Pond Cards (dynamic)
                             if (_filteredPonds.isEmpty)
-                              const Center(
+                              Center(
                                 child: Padding(
-                                  padding: EdgeInsets.all(20),
-                                  child: Text('No completed ponds yet'),
+                                  padding: const EdgeInsets.all(20),
+                                  child: Text(l10n.noCompletedPonds),
                                 ),
                               )
                             else
                               ..._filteredPonds.map((pond) {
                                 final name =
-                                    pond['name']?.toString() ?? 'Unknown';
+                                    pond['name']?.toString() ?? l10n.unknown;
                                 final species =
-                                    pond['species']?.toString() ?? 'Unknown';
+                                    pond['species']?.toString() ?? l10n.unknown;
                                 final status =
-                                    pond['status']?.toString() ?? 'Unknown';
+                                    pond['status']?.toString() ?? l10n.unknown;
                                 final hasAlert = pond['hasAlert'] == true;
                                 final pondId = pond['id']?.toString() ?? '';
                                 final iconTypes =
@@ -330,7 +330,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               Icons.calendar_today,
               color: AppTheme.textSecondary,
             ),
-            label: 'Schedule',
+            label: l10n.schedule,
           ),
           BottomNavigationBarItem(
             icon: Container(
@@ -341,12 +341,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
               child: const Icon(Icons.history, color: Colors.white, size: 24),
             ),
-            label: 'History',
+            label: l10n.history,
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.person_outlined),
             activeIcon: Icon(Icons.person, color: AppTheme.textSecondary),
-            label: 'Profile',
+            label: l10n.profile,
           ),
         ],
       ),
@@ -437,6 +437,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     required List<Icon> icons,
     required VoidCallback onTap,
   }) {
+    final l10n = AppLocalizations.of(context)!;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
@@ -524,7 +525,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Text(
-                  'View Dashboard',
+                  l10n.viewDashboard,
                   style: TextStyle(
                     fontSize: 14,
                     color: AppTheme.primaryColor,

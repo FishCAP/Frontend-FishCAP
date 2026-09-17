@@ -1,11 +1,11 @@
 {
-    "name": "fishcap_app",
-    "short_name": "fishcap_app",
+    "name": "FishCAP",
+    "short_name": "FishCAP",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "FishCAP - Precision Aquaculture Management",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:fishcap_app/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../app/theme.dart';
+import '../../app/widgets/app_logo.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/page_transitions.dart';
 import '../auth/register_screen.dart';
@@ -41,10 +42,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
 
+      final l10n = AppLocalizations.of(context)!;
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Login successful'),
+            content: Text(l10n.loginSuccessful),
             backgroundColor: AppTheme.successColor,
           ),
         );
@@ -52,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(userProvider.error ?? 'Login failed'),
+            content: Text(userProvider.error ?? l10n.loginFailed),
             backgroundColor: Colors.red,
           ),
         );
@@ -81,19 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 // Logo
                 Center(
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Icon(
-                      Icons.water_drop,
-                      size: 50,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: AppLogo(size: 100),
                 ),
 
                 const SizedBox(height: 24),
@@ -148,10 +139,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter your email';
+                      return l10n.pleaseEnterEmail;
                     }
                     if (!value.contains('@')) {
-                      return 'Please enter a valid email';
+                      return l10n.pleaseEnterValidEmail;
                     }
                     return null;
                   },
@@ -179,7 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please enter password';
+                      return l10n.pleaseEnterPassword;
                     }
                     return null;
                   },

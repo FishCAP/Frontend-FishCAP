@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:fishcap_app/l10n/app_localizations.dart';
 import '../../app/theme.dart';
 import '../../models/sensor_data.dart';
 import '../../services/api_service.dart';
+import '../../services/realtime_service.dart';
 
 class SensorDashboardScreen extends StatefulWidget {
   const SensorDashboardScreen({super.key});
@@ -17,13 +19,18 @@ class _SensorDashboardScreenState extends State<SensorDashboardScreen> {
   bool _isLoading = true;
   String? _error;
   Timer? _pollTimer;
+  StreamSubscription<Map<String, dynamic>>? _sensorSub;
 
   @override
   void initState() {
     super.initState();
     _fetchSensorData();
-    // Poll every 30 seconds
+    // Poll every 30 seconds as a fallback
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _fetchSensorData();
+    });
+    // Listen to WebSocket sensor_update stream for immediate refresh
+    _sensorSub = RealtimeService.instance.sensorDataStream.listen((_) {
       _fetchSensorData();
     });
   }
@@ -31,10 +38,12 @@ class _SensorDashboardScreenState extends State<SensorDashboardScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _sensorSub?.cancel();
     super.dispose();
   }
 
   Future<void> _fetchSensorData() async {
+    final l10n = AppLocalizations.of(context)!;
     try {
       final result = await _apiService.getLatestSensorData();
       if (!mounted) return;
@@ -60,28 +69,29 @@ class _SensorDashboardScreenState extends State<SensorDashboardScreen> {
       } else {
         setState(() {
           _isLoading = false;
-          _error = result['message'] ?? 'Failed to load sensor data';
+          _error = result['message'] ?? l10n.failedToLoadPonds;
         });
       }
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
-        _error = 'Network error: $e';
+        _error = l10n.networkError;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sensor Dashboard'),
+        title: Text(l10n.sensorDashboard),
         actions: [
           IconButton(
             onPressed: _fetchSensorData,
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: l10n.refresh,
           ),
         ],
       ),
@@ -184,7 +194,7 @@ class _SensorDashboardScreenState extends State<SensorDashboardScreen> {
                             context,
                             label: 'Temperature',
                             value: latest.temperature?.toStringAsFixed(1) ?? '--',
-                            unit: '°C',
+                            unit: l10n.temperature,
                             icon: Icons.thermostat,
                             color: AppTheme.primaryColor,
                           );
@@ -197,13 +207,13 @@ class _SensorDashboardScreenState extends State<SensorDashboardScreen> {
                             icon: Icons.science,
                             color: AppTheme.secondaryColor,
                           );
-                        default:
+                                                default:
                           return _buildSensorCard(
                             context,
-                            label: 'Dissolved O₂',
-                            value: latest.dissolvedOxygen?.toStringAsFixed(1) ?? '--',
-                            unit: 'mg/L',
-                            icon: Icons.air,
+                            label: 'TDS',
+                            value: latest.tds?.toStringAsFixed(1) ?? '--',
+                            unit: 'ppm',
+                            icon: Icons.water_drop,
                             color: AppTheme.successColor,
                           );
                       }
@@ -287,7 +297,7 @@ class _SensorDashboardScreenState extends State<SensorDashboardScreen> {
     required String unit,
     required IconData icon,
     required Color color,
-  }) {
+    }) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -343,7 +353,7 @@ class _SensorDashboardScreenState extends State<SensorDashboardScreen> {
     );
   }
 
-  Widget _buildHistoryItem(BuildContext context, SensorData data) {
+    Widget _buildHistoryItem(BuildContext context, SensorData data) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -367,7 +377,7 @@ class _SensorDashboardScreenState extends State<SensorDashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Temp: ${data.temperature?.toStringAsFixed(1) ?? '--'}°C  •  pH: ${data.ph?.toStringAsFixed(2) ?? '--'}  •  O₂: ${data.dissolvedOxygen?.toStringAsFixed(1) ?? '--'} mg/L',
+                                    'Temp: ${data.temperature?.toStringAsFixed(1) ?? '--'}°C  •  pH: ${data.ph?.toStringAsFixed(2) ?? '--'}  •  TDS: ${data.tds?.toStringAsFixed(1) ?? '--'} ppm',
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppTheme.textSecondary,

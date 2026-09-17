@@ -1,12 +1,12 @@
 import 'package:fishcap_app/screens/auth/login_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:fishcap_app/l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import '../../app/theme.dart';
+import '../../app/widgets/app_logo.dart';
 import '../../providers/user_provider.dart';
 import '../../utils/page_transitions.dart';
 import 'otp_verification_screen.dart';
-
-// Note: Localization will be added once the build succeeds
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -40,9 +40,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
     if (!_agreeTerms) {
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please agree to the terms and conditions'),
+                SnackBar(
+          content: Text(l10n.pleaseAgreeToTerms),
           backgroundColor: Colors.red,
         ),
       );
@@ -58,7 +59,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (!mounted) return;
 
       if (result['success'] == true) {
-        // Navigate to OTP verification screen
         Navigator.pushReplacement(
           context,
           PageTransitions.slideFromRight(OtpVerificationScreen(
@@ -69,9 +69,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           )),
         );
       } else {
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Registration failed'),
+            content: Text(result['message'] ?? l10n.registrationFailed),
             backgroundColor: Colors.red,
           ),
         );
@@ -85,8 +87,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(title: Text(l10n.createAccount)),
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -111,6 +114,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       children: [
                         const SizedBox(height: 20),
 
+                        // Logo
+                        Center(
+                          child: AppLogo(size: 100),
+                        ),
+
+                        const SizedBox(height: 24),
+
                         // Title
                         const Text(
                           'Create Account',
@@ -123,9 +133,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                         const SizedBox(height: 8),
 
-                        const Text(
-                          'Start monitoring your marine environment today',
-                          style: TextStyle(fontSize: 14, color: AppTheme.textSecondary),
+                        Text(
+                          l10n.createAccountSubtitle,
+                          style: const TextStyle(fontSize: 14, color: AppTheme.textSecondary),
                         ),
 
                         const SizedBox(height: 32),
@@ -133,13 +143,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         // Full Name
                         TextFormField(
                           controller: _fullNameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Full Name',
-                            prefixIcon: Icon(Icons.person_outline),
+                          decoration: InputDecoration(
+                            labelText: l10n.fullName,
+                            prefixIcon: const Icon(Icons.person_outline),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter your full name';
+                              return l10n.pleaseEnterYourName;
                             }
                             return null;
                           },
@@ -151,16 +161,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Email Address',
-                            prefixIcon: Icon(Icons.email_outlined),
+                          decoration: InputDecoration(
+                            labelText: l10n.emailAddress,
+                            prefixIcon: const Icon(Icons.email_outlined),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
+                              return l10n.pleaseEnterEmail;
                             }
                             if (!value.contains('@')) {
-                              return 'Please enter a valid email';
+                              return l10n.pleaseEnterValidEmail;
                             }
                             return null;
                           },
@@ -172,13 +182,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         TextFormField(
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
-                          decoration: const InputDecoration(
-                            labelText: 'Phone Number',
-                            prefixIcon: Icon(Icons.phone_outlined),
+                          decoration: InputDecoration(
+                            labelText: l10n.phoneNumber,
+                            prefixIcon: const Icon(Icons.phone_outlined),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter your phone number';
+                              return l10n.pleaseEnterPhoneNumber;
                             }
                             return null;
                           },
@@ -191,7 +201,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
-                            labelText: 'Password',
+                            labelText: l10n.password,
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -206,7 +216,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please enter a password';
+                              return l10n.pleaseEnterPassword;
                             }
                             if (value.length < 8) {
                               return 'Password must be at least 8 characters';
@@ -222,7 +232,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           controller: _confirmPasswordController,
                           obscureText: _obscureConfirmPassword,
                           decoration: InputDecoration(
-                            labelText: 'Confirm Password',
+                            labelText: l10n.confirmPassword,
                             prefixIcon: const Icon(Icons.lock_outline),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -240,10 +250,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please confirm your password';
+                              return l10n.pleaseConfirmPassword;
                             }
                             if (value != _passwordController.text) {
-                              return 'Passwords do not match';
+                              return l10n.passwordsDoNotMatch;
                             }
                             return null;
                           },
@@ -265,9 +275,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 onTap: () {
                                   setState(() => _agreeTerms = !_agreeTerms);
                                 },
-                                child: const Text(
-                                  'I agree to the Terms of Service and Privacy Policy',
-                                  style: TextStyle(fontSize: 12),
+                                child: Text(
+                                  l10n.agreeTerms,
+                                  style: const TextStyle(fontSize: 12),
                                 ),
                               ),
                             ),
@@ -290,7 +300,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : const Text('Create Account'),
+                                : Text(l10n.createAccountButton),
                           ),
                         ),
 
@@ -300,7 +310,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Text('Already have an account?'),
+                            Text(l10n.alreadyHaveAccount),
                             TextButton(
                               onPressed: () {
                                 Navigator.pushReplacement(
@@ -308,7 +318,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   PageTransitions.slideFromLeft(LoginScreen()),
                                 );
                               },
-                              child: const Text('Login'),
+                              child: Text(l10n.login),
                             ),
                           ],
                         ),

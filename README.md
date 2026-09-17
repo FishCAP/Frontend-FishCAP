@@ -1,4 +1,4 @@
-# AquaControl - Precision Aquaculture Management
+# FishCAP - Precision Aquaculture Management
 
 A Flutter mobile application for aquaculture management with bilingual support (English/Khmer).
 
@@ -104,7 +104,7 @@ The app connects to the FishCap backend API. Update the base URL in `lib/service
 
 ## Design
 
-The app follows the AquaControl design system with:
+The app follows the FishCAP design system with:
 - Primary color: Teal (#0D7377)
 - Modern card-based UI
 - Material Design 3

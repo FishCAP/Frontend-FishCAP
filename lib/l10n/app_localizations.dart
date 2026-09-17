@@ -101,7 +101,7 @@ abstract class AppLocalizations {
   /// No description provided for @appName.
   ///
   /// In en, this message translates to:
-  /// **'AquaControl'**
+  /// **'FishCAP'**
   String get appName;
 
   /// No description provided for @appTagline.
@@ -775,6 +775,666 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Mark as read'**
   String get readNotification;
+
+  /// No description provided for @loginSuccessful.
+  ///
+  /// In en, this message translates to:
+  /// **'Login successful'**
+  String get loginSuccessful;
+
+  /// No description provided for @loginFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Login failed'**
+  String get loginFailed;
+
+  /// No description provided for @pleaseEnterEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your email'**
+  String get pleaseEnterEmail;
+
+  /// No description provided for @pleaseEnterValidEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid email'**
+  String get pleaseEnterValidEmail;
+
+  /// No description provided for @pleaseEnterPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your password'**
+  String get pleaseEnterPassword;
+
+  /// No description provided for @pleaseAgreeToTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Please agree to the terms and conditions'**
+  String get pleaseAgreeToTerms;
+
+  /// No description provided for @registrationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Registration failed'**
+  String get registrationFailed;
+
+  /// No description provided for @createAccountError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create account'**
+  String get createAccountError;
+
+  /// No description provided for @accountVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'Account verified successfully!'**
+  String get accountVerified;
+
+  /// No description provided for @otpVerificationFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'OTP verification failed'**
+  String get otpVerificationFailed;
+
+  /// No description provided for @otpResent.
+  ///
+  /// In en, this message translates to:
+  /// **'OTP resent successfully'**
+  String get otpResent;
+
+  /// No description provided for @failedToResendOtp.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to resend OTP'**
+  String get failedToResendOtp;
+
+  /// No description provided for @enterOtpCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter OTP Code'**
+  String get enterOtpCode;
+
+  /// No description provided for @pleaseEnterOtpCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter the OTP code'**
+  String get pleaseEnterOtpCode;
+
+  /// No description provided for @otpMustBe6Digits.
+  ///
+  /// In en, this message translates to:
+  /// **'OTP must be 6 digits'**
+  String get otpMustBe6Digits;
+
+  /// No description provided for @otpMustBeDigitsOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'OTP must contain only digits'**
+  String get otpMustBeDigitsOnly;
+
+  /// No description provided for @resendOtp.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend OTP'**
+  String get resendOtp;
+
+  /// No description provided for @resending.
+  ///
+  /// In en, this message translates to:
+  /// **'Resending...'**
+  String get resending;
+
+  /// No description provided for @resendOtpIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Resend OTP in {count} s'**
+  String resendOtpIn(Object count);
+
+  /// No description provided for @alreadyVerified.
+  ///
+  /// In en, this message translates to:
+  /// **'Already verified?'**
+  String get alreadyVerified;
+
+  /// No description provided for @profileUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile updated successfully'**
+  String get profileUpdated;
+
+  /// No description provided for @failedToUpdateProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update profile'**
+  String get failedToUpdateProfile;
+
+  /// No description provided for @pleaseEnterYourName.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your name'**
+  String get pleaseEnterYourName;
+
+  /// No description provided for @remove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get remove;
+
+  /// No description provided for @english.
+  ///
+  /// In en, this message translates to:
+  /// **'English'**
+  String get english;
+
+  /// No description provided for @on.
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get on;
+
+  /// No description provided for @off.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get off;
+
+  /// No description provided for @chooseSiteToMonitor.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a site to monitor real-time data'**
+  String get chooseSiteToMonitor;
+
+  /// No description provided for @searchByNameOrSpecies.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by name or species...'**
+  String get searchByNameOrSpecies;
+
+  /// No description provided for @completedPonds.
+  ///
+  /// In en, this message translates to:
+  /// **'COMPLETED PONDS'**
+  String get completedPonds;
+
+  /// No description provided for @completedSpecies.
+  ///
+  /// In en, this message translates to:
+  /// **'COMPLETED SPECIES'**
+  String get completedSpecies;
+
+  /// No description provided for @viewDashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'View Dashboard'**
+  String get viewDashboard;
+
+  /// No description provided for @fishCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Fish Count'**
+  String get fishCount;
+
+  /// No description provided for @oxygenO2.
+  ///
+  /// In en, this message translates to:
+  /// **'Oxygen (O2)'**
+  String get oxygenO2;
+
+  /// No description provided for @tempLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Temp'**
+  String get tempLabel;
+
+  /// No description provided for @tank.
+  ///
+  /// In en, this message translates to:
+  /// **'Tank'**
+  String get tank;
+
+  /// No description provided for @tankNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Tank #01'**
+  String get tankNumber;
+
+  /// No description provided for @activeMonitoring.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Monitoring'**
+  String get activeMonitoring;
+
+  /// No description provided for @waterQualityStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Water Quality Status'**
+  String get waterQualityStatus;
+
+  /// No description provided for @feedSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Feed Schedule'**
+  String get feedSchedule;
+
+  /// No description provided for @noFeedSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'No Feeding Schedule'**
+  String get noFeedSchedule;
+
+  /// No description provided for @viewAllFeedingEvents.
+  ///
+  /// In en, this message translates to:
+  /// **'View all feeding events'**
+  String get viewAllFeedingEvents;
+
+  /// No description provided for @optimalStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Optimal'**
+  String get optimalStatus;
+
+  /// No description provided for @criticalStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Critical'**
+  String get criticalStatus;
+
+  /// No description provided for @waitingForSensorData.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting for sensor data...'**
+  String get waitingForSensorData;
+
+  /// No description provided for @justNow.
+  ///
+  /// In en, this message translates to:
+  /// **'just now'**
+  String get justNow;
+
+  /// No description provided for @minutesAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'min ago'**
+  String get minutesAgo;
+
+  /// No description provided for @hoursAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'h ago'**
+  String get hoursAgo;
+
+  /// No description provided for @updatedPrefix.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated'**
+  String get updatedPrefix;
+
+  /// No description provided for @noDataYet.
+  ///
+  /// In en, this message translates to:
+  /// **'No data yet'**
+  String get noDataYet;
+
+  /// No description provided for @lowStock.
+  ///
+  /// In en, this message translates to:
+  /// **'Low stock'**
+  String get lowStock;
+
+  /// No description provided for @stockOk.
+  ///
+  /// In en, this message translates to:
+  /// **'Stock OK'**
+  String get stockOk;
+
+  /// No description provided for @feedStockSensor.
+  ///
+  /// In en, this message translates to:
+  /// **'Feed Stock (Sensor)'**
+  String get feedStockSensor;
+
+  /// No description provided for @live.
+  ///
+  /// In en, this message translates to:
+  /// **'LIVE'**
+  String get live;
+
+  /// No description provided for @sensorDashboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Sensor Dashboard'**
+  String get sensorDashboard;
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @noSensorData.
+  ///
+  /// In en, this message translates to:
+  /// **'No sensor data available'**
+  String get noSensorData;
+
+  /// No description provided for @networkError.
+  ///
+  /// In en, this message translates to:
+  /// **'Network error'**
+  String get networkError;
+
+  /// No description provided for @createPond.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Pond'**
+  String get createPond;
+
+  /// No description provided for @editPond.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Pond'**
+  String get editPond;
+
+  /// No description provided for @active.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get active;
+
+  /// No description provided for @completed.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get completed;
+
+  /// No description provided for @scheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'Scheduled'**
+  String get scheduled;
+
+  /// No description provided for @pending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get pending;
+
+  /// No description provided for @deletePond.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Pond'**
+  String get deletePond;
+
+  /// No description provided for @deletePondConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this pond?'**
+  String get deletePondConfirm;
+
+  /// No description provided for @pondDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Pond deleted successfully'**
+  String get pondDeleted;
+
+  /// No description provided for @failedToDeletePond.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete pond'**
+  String get failedToDeletePond;
+
+  /// No description provided for @failedToLoadPonds.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load ponds'**
+  String get failedToLoadPonds;
+
+  /// No description provided for @errorLoadingPonds.
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading ponds'**
+  String get errorLoadingPonds;
+
+  /// No description provided for @activePonds.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Ponds'**
+  String get activePonds;
+
+  /// No description provided for @addNewTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Add New Time'**
+  String get addNewTime;
+
+  /// No description provided for @feedTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Feed Time'**
+  String get feedTime;
+
+  /// No description provided for @amountKg.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount (kg)'**
+  String get amountKg;
+
+  /// No description provided for @statusLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get statusLabel;
+
+  /// No description provided for @actionsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Actions'**
+  String get actionsLabel;
+
+  /// No description provided for @timeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Time'**
+  String get timeLabel;
+
+  /// No description provided for @typeToSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Type to search (Kh/En)'**
+  String get typeToSearch;
+
+  /// No description provided for @enterNumberOfFish.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter number of fish'**
+  String get enterNumberOfFish;
+
+  /// No description provided for @eg50.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 50'**
+  String get eg50;
+
+  /// No description provided for @calculate.
+  ///
+  /// In en, this message translates to:
+  /// **'Calculate'**
+  String get calculate;
+
+  /// No description provided for @results.
+  ///
+  /// In en, this message translates to:
+  /// **'Results'**
+  String get results;
+
+  /// No description provided for @totalDailyFeed.
+  ///
+  /// In en, this message translates to:
+  /// **'Total daily feed'**
+  String get totalDailyFeed;
+
+  /// No description provided for @perFeed3x.
+  ///
+  /// In en, this message translates to:
+  /// **'Per feed (3x)'**
+  String get perFeed3x;
+
+  /// No description provided for @monthlyBudget.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly budget (30 days)'**
+  String get monthlyBudget;
+
+  /// No description provided for @recommendedSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended schedule'**
+  String get recommendedSchedule;
+
+  /// No description provided for @morningSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Morning'**
+  String get morningSchedule;
+
+  /// No description provided for @middaySchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Midday'**
+  String get middaySchedule;
+
+  /// No description provided for @eveningSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Evening'**
+  String get eveningSchedule;
+
+  /// No description provided for @stockingDateOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Stocking date (optional)'**
+  String get stockingDateOptional;
+
+  /// No description provided for @notSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get notSet;
+
+  /// No description provided for @pickDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick date'**
+  String get pickDate;
+
+  /// No description provided for @avgWeightPerFish.
+  ///
+  /// In en, this message translates to:
+  /// **'Or enter current average weight per fish (g)'**
+  String get avgWeightPerFish;
+
+  /// No description provided for @searchSpecies.
+  ///
+  /// In en, this message translates to:
+  /// **'Search species'**
+  String get searchSpecies;
+
+  /// No description provided for @noPonds.
+  ///
+  /// In en, this message translates to:
+  /// **'No ponds available'**
+  String get noPonds;
+
+  /// No description provided for @sensorDataUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Sensor data updated'**
+  String get sensorDataUpdated;
+
+  /// No description provided for @offline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get offline;
+
+  /// No description provided for @online.
+  ///
+  /// In en, this message translates to:
+  /// **'Online'**
+  String get online;
+
+  /// No description provided for @noScheduleForToday.
+  ///
+  /// In en, this message translates to:
+  /// **'No schedule for today'**
+  String get noScheduleForToday;
+
+  /// No description provided for @feedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Feed'**
+  String get feedCount;
+
+  /// No description provided for @noSensorDataAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No sensor data available'**
+  String get noSensorDataAvailable;
+
+  /// No description provided for @pleaseEnterPhoneNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your phone number'**
+  String get pleaseEnterPhoneNumber;
+
+  /// No description provided for @pleaseConfirmPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Please confirm your password'**
+  String get pleaseConfirmPassword;
+
+  /// No description provided for @passwordsDoNotMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'Passwords do not match'**
+  String get passwordsDoNotMatch;
+
+  /// No description provided for @verifyYourEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Your Email'**
+  String get verifyYourEmail;
+
+  /// No description provided for @otpSentTo.
+  ///
+  /// In en, this message translates to:
+  /// **'We sent a verification code to'**
+  String get otpSentTo;
+
+  /// No description provided for @verifyEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify Email'**
+  String get verifyEmail;
+
+  /// No description provided for @alerts.
+  ///
+  /// In en, this message translates to:
+  /// **'ALERTS'**
+  String get alerts;
+
+  /// No description provided for @noCompletedPonds.
+  ///
+  /// In en, this message translates to:
+  /// **'No completed ponds yet'**
+  String get noCompletedPonds;
+
+  /// No description provided for @unknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get unknown;
 }
 
 class _AppLocalizationsDelegate
