@@ -795,20 +795,19 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   color: AppTheme.textPrimary,
                 ),
               ),
-              // Add other fields if they exist in the model (they are not in the given Pond definition)
-              // If you have ph and oxygen in your model, uncomment:
-              // if (pond.ph != null) ...[
-              //   const SizedBox(width: 16),
-              //   Icon(Icons.science, size: 16, color: AppTheme.primaryColor),
-              //   const SizedBox(width: 6),
-              //   Text(pond.ph!, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
-              // ],
-              // if (pond.oxygen != null) ...[
-              //   const SizedBox(width: 16),
-              //   Icon(Icons.water_damage, size: 16, color: AppTheme.errorColor),
-              //   const SizedBox(width: 6),
-              //   Text(pond.oxygen!, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
-              // ],
+              // Add other fields if they exist in the model
+              if (pond.ph != null) ...[
+                const SizedBox(width: 16),
+                Icon(Icons.science, size: 16, color: AppTheme.primaryColor),
+                const SizedBox(width: 6),
+                Text(pond.ph!, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+              ],
+              if (pond.oxygen != null) ...[
+                const SizedBox(width: 16),
+                Icon(Icons.water_damage, size: 16, color: AppTheme.errorColor),
+                const SizedBox(width: 6),
+                Text(pond.oxygen!, style: const TextStyle(fontSize: 14, color: AppTheme.textPrimary)),
+              ],
             ],
           ),
           const SizedBox(height: 16),

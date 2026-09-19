@@ -1435,6 +1435,276 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unknown'**
   String get unknown;
+
+  /// No description provided for @enterSiteLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter site location'**
+  String get enterSiteLocation;
+
+  /// No description provided for @pleaseEnterSiteLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter site location'**
+  String get pleaseEnterSiteLocation;
+
+  /// No description provided for @speciesExample.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., Tilapia'**
+  String get speciesExample;
+
+  /// No description provided for @required.
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get required;
+
+  /// No description provided for @pleaseSelectStartDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select start date'**
+  String get pleaseSelectStartDate;
+
+  /// No description provided for @pleaseSelectEndDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select end date'**
+  String get pleaseSelectEndDate;
+
+  /// No description provided for @endDateAfterStart.
+  ///
+  /// In en, this message translates to:
+  /// **'End date must be after start date'**
+  String get endDateAfterStart;
+
+  /// No description provided for @addFeedingSchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Feeding Schedule'**
+  String get addFeedingSchedule;
+
+  /// No description provided for @selectTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Select time'**
+  String get selectTime;
+
+  /// No description provided for @pleaseSelectTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a time'**
+  String get pleaseSelectTime;
+
+  /// No description provided for @pleaseEnterValidAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid amount'**
+  String get pleaseEnterValidAmount;
+
+  /// No description provided for @add.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get add;
+
+  /// No description provided for @feedingTimeExists.
+  ///
+  /// In en, this message translates to:
+  /// **'This feeding time already exists'**
+  String get feedingTimeExists;
+
+  /// No description provided for @pleaseAddFeedingTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Please add at least one feeding time'**
+  String get pleaseAddFeedingTime;
+
+  /// No description provided for @recommendedFeeding.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended Feeding'**
+  String get recommendedFeeding;
+
+  /// No description provided for @calculateRecommendation.
+  ///
+  /// In en, this message translates to:
+  /// **'Calculate recommendation'**
+  String get calculateRecommendation;
+
+  /// No description provided for @applyRecommendedAmounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply recommended amounts'**
+  String get applyRecommendedAmounts;
+
+  /// No description provided for @addEstCountFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an estimated fish count first to see a recommendation.'**
+  String get addEstCountFirst;
+
+  /// No description provided for @enterCountForRecommendation.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter estimated fish count to calculate a recommendation.'**
+  String get enterCountForRecommendation;
+
+  /// No description provided for @recommendedSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{fish} fish • {biomass} kg biomass • {dayFeed} kg/day • {perFeed} kg/feed • {meals} meals'**
+  String recommendedSummary(
+    Object biomass,
+    Object dayFeed,
+    Object fish,
+    Object meals,
+    Object perFeed,
+  );
+
+  /// No description provided for @refreshAmountsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap again to refresh amounts with the latest estimated count and average fish weight.'**
+  String get refreshAmountsHint;
+
+  /// No description provided for @feedUptakeTipDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'TDS (water conductivity) and pH affect feed uptake — ensure TDS and pH are within safe ranges before dispensing. Sensors will auto-verify conditions before dispensing.'**
+  String get feedUptakeTipDescription;
+
+  /// No description provided for @sensorAlert.
+  ///
+  /// In en, this message translates to:
+  /// **'Sensor Alert'**
+  String get sensorAlert;
+
+  /// No description provided for @sensorAlertMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'One or more sensor readings (feed stock, pH, TDS, temperature) indicate attention is needed.'**
+  String get sensorAlertMessage;
+
+  /// No description provided for @pondCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Pond created successfully'**
+  String get pondCreated;
+
+  /// No description provided for @pondUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Pond updated successfully'**
+  String get pondUpdated;
+
+  /// No description provided for @failedToSavePond.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save pond'**
+  String get failedToSavePond;
+
+  /// No description provided for @pondSavedBindingFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Pond saved but hardware binding failed — reopen the pond and retry.'**
+  String get pondSavedBindingFailed;
+
+  /// No description provided for @hardwareAlreadyAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Hardware \"{label}\" is already assigned to another pond. Complete that pond first or choose different hardware.'**
+  String hardwareAlreadyAssigned(String label);
+
+  /// No description provided for @failedToRegisterHardware.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to register hardware \"{label}\"'**
+  String failedToRegisterHardware(String label);
+
+  /// No description provided for @speciesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., Tilapia'**
+  String get speciesHint;
+
+  /// No description provided for @applyRecommended.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply recommended amounts'**
+  String get applyRecommended;
+
+  /// No description provided for @tapToRefreshAmounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap again to refresh amounts with the latest estimated count and average fish weight.'**
+  String get tapToRefreshAmounts;
+
+  /// No description provided for @enterFishCountFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter estimated fish count to calculate a recommendation.'**
+  String get enterFishCountFirst;
+
+  /// No description provided for @addFishCountFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an estimated fish count first to see a recommendation.'**
+  String get addFishCountFirst;
+
+  /// No description provided for @tapToCreateHardwareId.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to create or assign a hardware ID'**
+  String get tapToCreateHardwareId;
+
+  /// No description provided for @assignHardwareId.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign Hardware ID'**
+  String get assignHardwareId;
+
+  /// No description provided for @availableDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Available Devices'**
+  String get availableDevices;
+
+  /// No description provided for @generateNewId.
+  ///
+  /// In en, this message translates to:
+  /// **'Generate new ID'**
+  String get generateNewId;
+
+  /// No description provided for @noRegisteredDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'No registered devices. Enter an ID manually below.'**
+  String get noRegisteredDevices;
+
+  /// No description provided for @orEnterHardwareId.
+  ///
+  /// In en, this message translates to:
+  /// **'Or enter a hardware ID manually'**
+  String get orEnterHardwareId;
+
+  /// No description provided for @hardwareIdHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. FEEDER-09-AX'**
+  String get hardwareIdHint;
+
+  /// No description provided for @confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get confirm;
+
+  /// No description provided for @failedToCreateDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create device: {error}'**
+  String failedToCreateDevice(String error);
 }
 
 class _AppLocalizationsDelegate

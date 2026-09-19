@@ -729,7 +729,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return;
       }
 
-      // CHANGED (Issue 3): write only FeedingScheduleItemDto fields.
+      // The dialog field is labelled "Feed Amount (kg)", and KILOGRAMS is the
+      // unit end-to-end: FeedingScheduleItemDto.amount → feed_schedules
+      // .feed_amount → the ESP32's `targetKg` (compared against the load-cell
+      // reading in kg). Send the value as entered — scaling it here (a *1000
+      // "grams" conversion) asked the feeder for 1000x the portion.
       feedSchedules.add({
         'time': time,
         'amount': double.tryParse(amountText) ?? 0,
@@ -968,7 +972,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Tank #01',
+                          widget.pondName.isNotEmpty
+                              ? widget.pondName
+                              : 'Pond',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.white.withValues(alpha: 0.9),

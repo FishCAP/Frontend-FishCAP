@@ -161,6 +161,41 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  /// Reset a forgotten password using a code issued by [requestOtp].
+  ///
+  /// Returns true only when the backend confirmed the change; otherwise the
+  /// reason is exposed through [error].
+  Future<bool> resetPassword(
+    String email,
+    String code,
+    String newPassword,
+  ) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      final result = await _apiService.resetPassword(
+        email: email,
+        code: code,
+        newPassword: newPassword,
+      );
+
+      if (result['success'] == true) {
+        _error = null;
+        return true;
+      }
+
+      _error = result['message'] ?? 'Failed to reset password';
+      return false;
+    } catch (e) {
+      _error = 'Network error: $e';
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   /// Update user's full name and phone number.
   Future<void> updateProfile({
     required String fullName,

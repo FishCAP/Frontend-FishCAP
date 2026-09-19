@@ -168,6 +168,32 @@ class ApiService {
     return _storeSession(_processResponse(response));
   }
 
+  /// Reset the password of an existing account ("Forgot Password?" on login).
+  ///
+  /// Ownership is proven with the 6-digit code issued by [requestOtp] instead
+  /// of the current password. The backend consumes the code and writes the new
+  /// password, so no session is created here — the user signs in normally
+  /// afterwards.
+  Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/auth/reset-password'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'email': email,
+            'code': code,
+            'password': newPassword,
+          }),
+        )
+        .timeout(_timeout);
+
+    return _processResponse(response);
+  }
+
   // --------------------------------------------------
   // User profile
   // --------------------------------------------------
@@ -582,6 +608,15 @@ class ApiService {
     }
     return response;
   }
+
+  // Reset Password
+
+  Future<bool> requestPasswordReset(String email) async {
+    final result = await requestOtp(email.trim());
+    return result['success'] == true;
+  }
+
+
 
   /// Convert an http.Response into a standardized map.
   ///

@@ -681,4 +681,160 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get unknown => 'Unknown';
+
+  @override
+  String get enterSiteLocation => 'Enter site location';
+
+  @override
+  String get pleaseEnterSiteLocation => 'Please enter site location';
+
+  @override
+  String get speciesExample => 'e.g., Tilapia';
+
+  @override
+  String get required => 'Required';
+
+  @override
+  String get pleaseSelectStartDate => 'Please select start date';
+
+  @override
+  String get pleaseSelectEndDate => 'Please select end date';
+
+  @override
+  String get endDateAfterStart => 'End date must be after start date';
+
+  @override
+  String get addFeedingSchedule => 'Add Feeding Schedule';
+
+  @override
+  String get selectTime => 'Select time';
+
+  @override
+  String get pleaseSelectTime => 'Please select a time';
+
+  @override
+  String get pleaseEnterValidAmount => 'Please enter a valid amount';
+
+  @override
+  String get add => 'Add';
+
+  @override
+  String get feedingTimeExists => 'This feeding time already exists';
+
+  @override
+  String get pleaseAddFeedingTime => 'Please add at least one feeding time';
+
+  @override
+  String get recommendedFeeding => 'Recommended Feeding';
+
+  @override
+  String get calculateRecommendation => 'Calculate recommendation';
+
+  @override
+  String get applyRecommendedAmounts => 'Apply recommended amounts';
+
+  @override
+  String get addEstCountFirst =>
+      'Add an estimated fish count first to see a recommendation.';
+
+  @override
+  String get enterCountForRecommendation =>
+      'Enter estimated fish count to calculate a recommendation.';
+
+  @override
+  String recommendedSummary(
+    Object biomass,
+    Object dayFeed,
+    Object fish,
+    Object meals,
+    Object perFeed,
+  ) {
+    return '$fish fish • $biomass kg biomass • $dayFeed kg/day • $perFeed kg/feed • $meals meals';
+  }
+
+  @override
+  String get refreshAmountsHint =>
+      'Tap again to refresh amounts with the latest estimated count and average fish weight.';
+
+  @override
+  String get feedUptakeTipDescription =>
+      'TDS (water conductivity) and pH affect feed uptake — ensure TDS and pH are within safe ranges before dispensing. Sensors will auto-verify conditions before dispensing.';
+
+  @override
+  String get sensorAlert => 'Sensor Alert';
+
+  @override
+  String get sensorAlertMessage =>
+      'One or more sensor readings (feed stock, pH, TDS, temperature) indicate attention is needed.';
+
+  @override
+  String get pondCreated => 'Pond created successfully';
+
+  @override
+  String get pondUpdated => 'Pond updated successfully';
+
+  @override
+  String get failedToSavePond => 'Failed to save pond';
+
+  @override
+  String get pondSavedBindingFailed =>
+      'Pond saved but hardware binding failed — reopen the pond and retry.';
+
+  @override
+  String hardwareAlreadyAssigned(String label) {
+    return 'Hardware \"$label\" is already assigned to another pond. Complete that pond first or choose different hardware.';
+  }
+
+  @override
+  String failedToRegisterHardware(String label) {
+    return 'Failed to register hardware \"$label\"';
+  }
+
+  @override
+  String get speciesHint => 'e.g., Tilapia';
+
+  @override
+  String get applyRecommended => 'Apply recommended amounts';
+
+  @override
+  String get tapToRefreshAmounts =>
+      'Tap again to refresh amounts with the latest estimated count and average fish weight.';
+
+  @override
+  String get enterFishCountFirst =>
+      'Enter estimated fish count to calculate a recommendation.';
+
+  @override
+  String get addFishCountFirst =>
+      'Add an estimated fish count first to see a recommendation.';
+
+  @override
+  String get tapToCreateHardwareId => 'Tap to create or assign a hardware ID';
+
+  @override
+  String get assignHardwareId => 'Assign Hardware ID';
+
+  @override
+  String get availableDevices => 'Available Devices';
+
+  @override
+  String get generateNewId => 'Generate new ID';
+
+  @override
+  String get noRegisteredDevices =>
+      'No registered devices. Enter an ID manually below.';
+
+  @override
+  String get orEnterHardwareId => 'Or enter a hardware ID manually';
+
+  @override
+  String get hardwareIdHint => 'e.g. FEEDER-09-AX';
+
+  @override
+  String get confirm => 'Confirm';
+
+  @override
+  String failedToCreateDevice(String error) {
+    return 'Failed to create device: $error';
+  }
 }

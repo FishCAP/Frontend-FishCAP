@@ -163,12 +163,16 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
           }
           return (
             null,
-            'Hardware "$label" is already assigned to another pond. Complete that pond first or choose different hardware.'
+            AppLocalizations.of(context)!.hardwareAlreadyAssigned(label),
           );
         }
       }
     }
-    return (null, created['message']?.toString() ?? 'Failed to register hardware "$label"');
+    return (
+      null,
+      created['message']?.toString() ??
+          AppLocalizations.of(context)!.failedToRegisterHardware(label),
+    );
   }
 
   Future<void> _fetchPondAlerts() async {
@@ -229,10 +233,8 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
     final (_, _, _, perFeedKg, _) = _computeRecommended();
     if (perFeedKg <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Add an estimated fish count first to see a recommendation.',
-          ),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.addEstCountFirst),
         ),
       );
       _showRecommended = false;
@@ -267,11 +269,17 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
   String _recommendedSummary() {
     final (fish, biomass, dayFeed, perFeed, meals) =
         _computeRecommended();
+    final l10n = AppLocalizations.of(context)!;
     if (fish <= 0) {
-      return 'Enter estimated fish count to calculate a recommendation.';
+      return l10n.enterCountForRecommendation;
     }
-    return '$fish fish  •  ${biomass.toStringAsFixed(1)} kg biomass  '
-        '•  $dayFeed kg/day  •  $perFeed kg/feed  •  $meals meals';
+    return l10n.recommendedSummary(
+      biomass.toStringAsFixed(1),
+      dayFeed.toStringAsFixed(2),
+      fish.toString(),
+      meals.toString(),
+      perFeed.toStringAsFixed(2),
+    );
   }
 
   void _loadPondData(Pond pond) {
@@ -362,6 +370,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
   }
 
   Future<void> _showAddFeedingDialog() async {
+    final l10n = AppLocalizations.of(context)!;
     TimeOfDay? selectedTime;
     final amountController = TextEditingController();
     final timeController = TextEditingController();
@@ -372,15 +381,15 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Add Feeding Schedule'),
+              title: Text(l10n.addFeedingSchedule),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextFormField(
                     readOnly: true,
                     decoration: InputDecoration(
-                      labelText: 'Feeding Time',
-                      hintText: 'Select time',
+                      labelText: l10n.feedingTime,
+                      hintText: l10n.selectTime,
                       prefixIcon: const Icon(Icons.access_time),
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.schedule),
@@ -424,7 +433,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                       decimal: true,
                     ),
                     decoration: InputDecoration(
-                      labelText: 'Amount',
+                      labelText: l10n.amount,
                       hintText: '0.00',
                       suffixText: 'kg',
                       border: OutlineInputBorder(
@@ -437,13 +446,13 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogContext),
-                  child: const Text('Cancel'),
+                  child: Text(l10n.cancel),
                 ),
                 ElevatedButton(
                   onPressed: () {
                     if (selectedTime == null) {
                       ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(content: Text('Please select a time')),
+                        SnackBar(content: Text(l10n.pleaseSelectTime)),
                       );
                       return;
                     }
@@ -453,8 +462,8 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                     );
                     if (amount == null || amount <= 0) {
                       ScaffoldMessenger.of(this.context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please enter a valid amount'),
+                        SnackBar(
+                          content: Text(l10n.pleaseEnterValidAmount),
                         ),
                       );
                       return;
@@ -468,7 +477,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                       'amount': amount,
                     });
                   },
-                  child: const Text('Add'),
+                  child: Text(l10n.add),
                 ),
               ],
             );
@@ -491,7 +500,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
 
     if (alreadyExists) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This feeding time already exists')),
+        SnackBar(content: Text(l10n.feedingTimeExists)),
       );
       return;
     }
@@ -521,11 +530,12 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
   }
 
   Future<void> _saveSchedule() async {
+    final l10n = AppLocalizations.of(context)!;
     if (!_formKey.currentState!.validate()) return;
 
     if (_feedingSchedules.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add at least one feeding time')),
+        SnackBar(content: Text(l10n.pleaseAddFeedingTime)),
       );
       return;
     }
@@ -617,7 +627,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Network error: $e'),
+          content: Text('${l10n.networkError}: $e'),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -640,7 +650,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
             SnackBar(
               content: Text(
                 assignResult['message']?.toString() ??
-                    'Pond saved but hardware binding failed — reopen the pond and retry.',
+                    l10n.pondSavedBindingFailed,
               ),
               backgroundColor: AppTheme.warningColor,
             ),
@@ -652,9 +662,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            widget.pond != null
-                ? 'Pond updated successfully'
-                : 'Pond created successfully',
+            widget.pond != null ? l10n.pondUpdated : l10n.pondCreated,
           ),
           backgroundColor: AppTheme.successColor,
         ),
@@ -664,7 +672,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
       return;
     }
 
-    String errorMsg = result['message'] ?? 'Failed to save pond';
+    String errorMsg = result['message'] ?? l10n.failedToSavePond;
     if (result['errors'] is Map) {
       final errors = result['errors'] as Map;
       if (errors.isNotEmpty) {
@@ -681,7 +689,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Error: $errorMsg'),
+        content: Text('${l10n.error}: $errorMsg'),
         backgroundColor: AppTheme.errorColor,
       ),
     );
@@ -778,9 +786,9 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                       ),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: const Text(
-                                      'OPERATIONAL MODE',
-                                      style: TextStyle(
+                                    child: Text(
+                                      l10n.operationalMode,
+                                      style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                         color: Colors.white,
@@ -789,7 +797,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
-                                    'Configure automated feeding',
+                                    l10n.configureAutomatedFeeding,
                                     style: Theme.of(context)
                                         .textTheme
                                         .headlineSmall
@@ -805,23 +813,23 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                         ),
                         const SizedBox(height: 32),
 
-                        _sectionTitle(context, 'Pond Selection'),
+                        _sectionTitle(context, l10n.pondSelection),
                         const SizedBox(height: 16),
                         TextFormField(
                           controller: _siteLocationController,
                           decoration: _inputDecoration(
-                            label: 'Site Location',
-                            hint: 'Enter site location',
+                            label: l10n.siteLocation,
+                            hint: l10n.enterSiteLocation,
                             icon: Icons.location_on,
                           ),
                           validator: (value) =>
                               value == null || value.trim().isEmpty
-                              ? 'Please enter site location'
+                              ? l10n.pleaseEnterSiteLocation
                               : null,
                         ),
 
                         const SizedBox(height: 24),
-                        _sectionTitle(context, 'Batch Info'),
+                        _sectionTitle(context, l10n.batchInfo),
                         const SizedBox(height: 16),
                         Row(
                           children: [
@@ -829,12 +837,12 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                               child: TextFormField(
                                 controller: _speciesController,
                                 decoration: _inputDecoration(
-                                  label: 'Current Species',
-                                  hint: 'e.g., Tilapia',
+                                  label: l10n.currentSpecies,
+                                  hint: l10n.speciesHint,
                                 ),
                                 validator: (value) =>
                                     value == null || value.trim().isEmpty
-                                    ? 'Required'
+                                    ? l10n.required
                                     : null,
                               ),
                             ),
@@ -843,13 +851,13 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                               child: TextFormField(
                                 controller: _estCountController,
                                 decoration: _inputDecoration(
-                                  label: 'Est. Count',
+                                  label: l10n.estCount,
                                   hint: '0',
                                 ),
                                 keyboardType: TextInputType.number,
                                 validator: (value) =>
                                     value == null || value.trim().isEmpty
-                                    ? 'Required'
+                                    ? l10n.required
                                     : null,
                               ),
                             ),
@@ -862,7 +870,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                           readOnly: true,
                           onTap: _selectStartDate,
                           decoration: _inputDecoration(
-                            label: 'Start Date',
+                            label: l10n.startDate,
                             hint: 'mm/dd/yyyy',
                             icon: Icons.calendar_today,
                             suffix: IconButton(
@@ -871,7 +879,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                             ),
                           ),
                           validator: (value) => value == null || value.isEmpty
-                              ? 'Please select start date'
+                              ? l10n.pleaseSelectStartDate
                               : null,
                         ),
                         const SizedBox(height: 16),
@@ -880,7 +888,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                           readOnly: true,
                           onTap: _selectEndDate,
                           decoration: _inputDecoration(
-                            label: 'End Date',
+                            label: l10n.endDate,
                             hint: 'mm/dd/yyyy',
                             icon: Icons.calendar_today,
                             suffix: IconButton(
@@ -890,19 +898,19 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
-                              return 'Please select end date';
+                              return l10n.pleaseSelectEndDate;
                             }
                             if (_endDate != null &&
                                 _startDate != null &&
                                 _endDate!.isBefore(_startDate!)) {
-                              return 'End date must be after start date';
+                              return l10n.endDateAfterStart;
                             }
                             return null;
                           },
                         ),
 
                         const SizedBox(height: 32),
-                        _sectionTitle(context, 'Feeding Schedule'),
+                        _sectionTitle(context, l10n.feedSchedule),
                         const SizedBox(height: 12),
 
                         if (_feedingSchedules.isEmpty)
@@ -920,9 +928,9 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                 ),
                               ),
                             ),
-                            child: const Text(
-                              'No feeding times added yet. Tap + Add Time to create a feeding time and amount.',
-                              style: TextStyle(height: 1.4),
+                            child: Text(
+                              l10n.noFeedSchedule,
+                              style: const TextStyle(height: 1.4),
                             ),
                           )
                         else
@@ -943,7 +951,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                           child: OutlinedButton.icon(
                             onPressed: _showAddFeedingDialog,
                             icon: const Icon(Icons.add),
-                            label: const Text('Add Time'),
+                            label: Text(l10n.addTime),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.primaryColor,
                               side: const BorderSide(
@@ -958,7 +966,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                         ),
 
                         const SizedBox(height: 32),
-                        _sectionTitle(context, 'Hardware ID'),
+                        _sectionTitle(context, l10n.hardware),
                         const SizedBox(height: 16),
                         // Registered-device picker: sends the device UUID as
                         // `deviceId` so the backend binds devices.pond_id and
@@ -977,7 +985,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
 
                         const SizedBox(height: 32),
 
-                        _sectionTitle(context, 'Recommended Feeding'),
+                        _sectionTitle(context, l10n.recommendedFeeding),
                         const SizedBox(height: 12),
                         Container(
                           width: double.infinity,
@@ -1026,8 +1034,8 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                   ),
                                   label: Text(
                                     _showRecommended
-                                        ? 'Apply recommended amounts'
-                                        : 'Calculate recommendation',
+                                        ? l10n.applyRecommended
+                                        : l10n.calculateRecommendation,
                                   ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppTheme.primaryColor,
@@ -1046,8 +1054,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                               if (_showRecommended)
                                 SizedBox(
                                   child: Text(
-                                  'Tap again to refresh amounts with the latest '
-                                  'estimated count and average fish weight.',
+                                  l10n.tapToRefreshAmounts,
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: AppTheme.textSecondary,
@@ -1072,7 +1079,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                               ),
                             ),
                             child: Text(
-                              widget.pond != null ? 'Save Pond' : 'Create Pond',
+                              widget.pond != null ? l10n.save : l10n.createPond,
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -1094,9 +1101,9 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(
+                            child: Text(
+                              l10n.cancel,
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: AppTheme.textSecondary,
@@ -1116,31 +1123,31 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                               ),
                             ),
                           ),
-                          child: const Row(
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.info_outline,
                                 color: AppTheme.primaryColor,
                                 size: 20,
                               ),
-                              SizedBox(width: 12),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Precision Feeding Tip',
-                                      style: TextStyle(
+                                      l10n.precisionFeedingTip,
+                                      style: const TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w600,
                                         color: AppTheme.primaryColor,
                                       ),
                                     ),
-                                    SizedBox(height: 4),
+                                    const SizedBox(height: 4),
                                     Text(
-                                      'TDS (water conductivity) and pH affect feed uptake — ensure TDS and pH are within safe ranges before dispensing. Sensors will auto-verify conditions before dispensing.',
-                                      style: TextStyle(
+                                      l10n.feedingTipDescription,
+                                      style: const TextStyle(
                                         fontSize: 13,
                                         color: AppTheme.textSecondary,
                                         height: 1.4,
@@ -1187,7 +1194,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                       Text(
                                         _alertTitle.isNotEmpty
                                             ? _alertTitle
-                                            : 'Sensor Alert',
+                                            : l10n.sensorAlert,
                                         style: const TextStyle(
                                           fontSize: 15,
                                           fontWeight: FontWeight.w700,
@@ -1198,7 +1205,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
                                       Text(
                                         _alertMessage.isNotEmpty
                                             ? _alertMessage
-                                            : 'One or more sensor readings (feed stock, pH, TDS, temperature) indicate attention is needed.',
+                                            : l10n.sensorAlertMessage,
                                         style: const TextStyle(
                                           fontSize: 13,
                                           color: AppTheme.textSecondary,
@@ -1251,6 +1258,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
   }
 
   Widget _feedingScheduleCard(int index) {
+    final l10n = AppLocalizations.of(context)!;
     final schedule = _feedingSchedules[index];
     final time = schedule['time'] as String;
     final amount = (schedule['amount'] as num).toDouble();
@@ -1301,7 +1309,7 @@ class _CreatePondScreenState extends State<CreatePondScreen> {
             ),
           ),
           IconButton(
-            tooltip: 'Remove',
+            tooltip: l10n.remove,
             onPressed: () => _removeFeedingSchedule(index),
             icon: const Icon(Icons.delete_outline),
             color: AppTheme.errorColor,

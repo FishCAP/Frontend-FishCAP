@@ -1,3 +1,4 @@
+import 'package:fishcap_app/screens/auth/forget_password_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:fishcap_app/l10n/app_localizations.dart';
@@ -99,6 +100,8 @@ class MyApp extends StatelessWidget {
                   return PageTransitions.fade(const LoginScreen());
                 case '/register':
                   return PageTransitions.slideFromRight(const RegisterScreen());
+                case '/forgot_password':
+                  return PageTransitions.slideFromRight(const ForgotPasswordScreen());
                 case '/home':
                   return PageTransitions.fade(const ScheduleScreen());
                 case '/create_pond':

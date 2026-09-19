@@ -207,7 +207,7 @@ class _SensorDashboardScreenState extends State<SensorDashboardScreen> {
                             icon: Icons.science,
                             color: AppTheme.secondaryColor,
                           );
-                                                default:
+                        case 2:
                           return _buildSensorCard(
                             context,
                             label: 'TDS',
@@ -216,6 +216,8 @@ class _SensorDashboardScreenState extends State<SensorDashboardScreen> {
                             icon: Icons.water_drop,
                             color: AppTheme.successColor,
                           );
+                        default:
+                          return const SizedBox.shrink();
                       }
                     },
                   ),

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "822758574252",
+    "project_id": "fishcap-9f4d5",
+    "storage_bucket": "fishcap-9f4d5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:822758574252:android:41eff19f8360c9e1e2f709",
+        "android_client_info": {
+          "package_name": "com.example.fishcap_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCteBVkpik6wQxXF2uvPt3SdL8IrOrDxFo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

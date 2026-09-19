@@ -21,6 +21,7 @@ dependencies:
   socket_io_client: ^2.0.0
   flutter_local_notifications: ^17.2.4
   flutter_local_notifications_linux: ^4.0.0
+  firebase_core: ^4.15.0
 
 dev_dependencies:
   flutter_test:
@@ -50,7 +51,7 @@ flutter_launcher_icons:
 
 
 flutter:
-  uses-material-design: true
   generate: true
+  uses-material-design: true
   assets:
     - assets/logo.png

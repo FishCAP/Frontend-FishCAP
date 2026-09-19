@@ -683,4 +683,162 @@ class AppLocalizationsKm extends AppLocalizations {
 
   @override
   String get unknown => 'មិនស្គាល់';
+
+  @override
+  String get enterSiteLocation => 'បញ្ចូលទីតាំងវាលី';
+
+  @override
+  String get pleaseEnterSiteLocation => 'សូមបញ្ចូលទីតាំងវាលី';
+
+  @override
+  String get speciesExample => 'ឧ. ត្រីទីឡាពី';
+
+  @override
+  String get required => 'ទាមទារ';
+
+  @override
+  String get pleaseSelectStartDate => 'សូមជ្រើសរើសកាលបរិច្ឆេទចាប់ផ្តើម';
+
+  @override
+  String get pleaseSelectEndDate => 'សូមជ្រើសរើសកាលបរិច្ឆេទបញ្ចប់';
+
+  @override
+  String get endDateAfterStart =>
+      'កាលបរិច្ឆេទបញ្ចប់ត្រូវតែនៅក្រោយកាលបរិច្ឆេទចាប់ផ្តើម';
+
+  @override
+  String get addFeedingSchedule => 'បន្ថែមកាលវិភាគព្រោះត្រី';
+
+  @override
+  String get selectTime => 'ជ្រើសរើសពេលវេលា';
+
+  @override
+  String get pleaseSelectTime => 'សូមជ្រើសរើសពេលវេលា';
+
+  @override
+  String get pleaseEnterValidAmount => 'សូមបញ្ចូលបរិមាណត្រឹមត្រូវ';
+
+  @override
+  String get add => 'បន្ថែម';
+
+  @override
+  String get feedingTimeExists => 'ពេលព្រោះត្រីនេះមានរួចហើយ';
+
+  @override
+  String get pleaseAddFeedingTime => 'សូមបន្ថែមពេលព្រោះត្រីយ៉ាងតិចមួយ';
+
+  @override
+  String get recommendedFeeding => 'ការព្រោះត្រីតាមអនុសាសន៍';
+
+  @override
+  String get calculateRecommendation => 'គណនាអនុសាសន៍';
+
+  @override
+  String get applyRecommendedAmounts => 'អនុវត្តបរិមាណតាមការណែនាំ';
+
+  @override
+  String get addEstCountFirst =>
+      'សូមបញ្ចូលចំនួនត្រីជាមុនសិន ដើម្បីទទួលបានការណែនាំ។';
+
+  @override
+  String get enterCountForRecommendation =>
+      'បញ្ចូលចំនួនត្រីដើម្បីគណនាការណែនាំ។';
+
+  @override
+  String recommendedSummary(
+    Object biomass,
+    Object dayFeed,
+    Object fish,
+    Object meals,
+    Object perFeed,
+  ) {
+    return 'ត្រី $fish ក្បាល • ទម្ងន់សរុប $biomass kg • $dayFeed kg/ថ្ងៃ • $perFeed kg/ពេល • $meals ពេល';
+  }
+
+  @override
+  String get refreshAmountsHint =>
+      'ចុចម្តងទៀតដើម្បីធ្វើបច្ចុប្បន្នភាពបរិមាណតាមចំនួនត្រី និងទម្ងន់ត្រីមធ្យមថ្មីបំផុត។';
+
+  @override
+  String get feedUptakeTipDescription =>
+      'TDS (ធាតុរំលាយក្នុងទឹក) និង pH មានឥទ្ធិពលលើការលេបចំណីត្រី — សូមប្រាកដថា TDS និង pH ស្ថិតក្នុងជួរសុវត្ថិភាពមុននឹងចេញចំណី។ ឧបករណ៍វាស់នឹងផ្ទៀងផ្ទាត់លក្ខណ្ឌដោយស្វ័យប្រវត្តិមុនពេលចេញចំណី។';
+
+  @override
+  String get sensorAlert => 'ការជូនដំណឹងពីសេនស័រ';
+
+  @override
+  String get sensorAlertMessage =>
+      'ការអានសេនស័រមួយឬច្រើន (ស្តុកចំណី, pH, TDS, សីតុណ្ហភាព) បង្ហាញថាត្រូវការយកចិត្តទុកដាក់។';
+
+  @override
+  String get pondCreated => 'បង្កើតបន្ទប់ត្រីបានជោគជ័យ';
+
+  @override
+  String get pondUpdated => 'ធ្វើបច្ចុប្បន្នភាពបន្ទប់ត្រីបានជោគជ័យ';
+
+  @override
+  String get failedToSavePond => 'រក្សាទុកបន្ទប់ត្រីមិនបានជោគជ័យ';
+
+  @override
+  String get pondSavedBindingFailed =>
+      'រក្សាទុកបន្ទប់ត្រីបាន ប៉ុន្តែភ្ជាប់ផ្នែករឹងមិនបានជោគជ័យ — សូមបើកបន្ទប់ត្រីឡើងវិញហើយព្យាយាមម្តងទៀត។';
+
+  @override
+  String hardwareAlreadyAssigned(String label) {
+    return 'ផ្នែករឹង \"$label\" ត្រូវបានភ្ជាប់ទៅបន្ទប់ត្រីផ្សេងរួចហើយ។ សូមបញ្ចប់បន្ទប់ត្រីនោះជាមុនសិន ឬជ្រើសរើសផ្នែករឹងផ្សេង។';
+  }
+
+  @override
+  String failedToRegisterHardware(String label) {
+    return 'ចុះឈ្មោះផ្នែករឹង \"$label\" មិនបានជោគជ័យ';
+  }
+
+  @override
+  String get speciesHint => 'ឧ. ត្រីនីឡូ';
+
+  @override
+  String get applyRecommended => 'អនុវត្តបរិមាណតាមអនុសាសន៍';
+
+  @override
+  String get tapToRefreshAmounts =>
+      'ចុចម្តងទៀតដើម្បីធ្វើឱ្យបរិមាណទាន់សម័យជាមួយចំនួនត្រីព្យាករណ៍ និងទម្ងន់ត្រីមធ្យមថ្មី។';
+
+  @override
+  String get enterFishCountFirst =>
+      'បញ្ចូលចំនួនត្រីព្យាករណ៍ដើម្បីគណនាអនុសាសន៍។';
+
+  @override
+  String get addFishCountFirst =>
+      'បន្ថែមចំនួនត្រីព្យាករណ៍ជាមុនសិនដើម្បីឃើញអនុសាសន៍។';
+
+  @override
+  String get tapToCreateHardwareId =>
+      'ចុចដើម្បីបង្កើតឬភ្ជាប់លេខសម្គាល់ផ្នែករឹង';
+
+  @override
+  String get assignHardwareId => 'ភ្ជាប់លេខសម្គាល់ផ្នែករឹង';
+
+  @override
+  String get availableDevices => 'ឧបករណ៍ដែលមាន';
+
+  @override
+  String get generateNewId => 'បង្កើតលេខសម្គាល់ថ្មី';
+
+  @override
+  String get noRegisteredDevices =>
+      'គ្មានឧបករណ៍ចុះឈ្មោះ។ សូមបញ្ចូលលេខសម្គាល់ដោយខ្លួនឯងខាងក្រោម។';
+
+  @override
+  String get orEnterHardwareId => 'ឬបញ្ចូលលេខសម្គាល់ផ្នែករឹងដោយខ្លួនឯង';
+
+  @override
+  String get hardwareIdHint => 'ឧ. FEEDER-09-AX';
+
+  @override
+  String get confirm => 'បញ្ជាក់';
+
+  @override
+  String failedToCreateDevice(String error) {
+    return 'បង្កើតឧបករណ៍មិនបានជោគជ័យ: $error';
+  }
 }

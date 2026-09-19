@@ -221,5 +221,18 @@
   "verifyEmail": "Verify Email",
   "alerts": "ALERTS",
   "noCompletedPonds": "No completed ponds yet",
-  "unknown": "Unknown"
+  "unknown": "Unknown",
+  "forgotPassword": "Forgot password?",
+"resetPassword": "Reset password",
+"sendResetLink": "Send reset link",
+"checkYourEmail": "Check your email",
+"resetLinkSent": "If an account exists for {email}, a reset link is on its way.",
+"@resetLinkSent": {
+  "placeholders": { "email": { "type": "String" } }
+},
+"resetLinkInvalid": "Reset link is invalid or expired.",
+"passwordUpdated": "Password updated. Please log in.",
+"backToLogin": "Back to login",
+"confirmPassword": "Confirm password",
+"passwordsDoNotMatch": "Passwords do not match"
 }
